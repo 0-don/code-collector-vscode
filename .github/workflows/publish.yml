@@ -35,6 +35,8 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -56,5 +58,6 @@ jobs:
         with:
           tag_name: v${{ needs.check-version.outputs.new-version }}
           release_name: v${{ needs.check-version.outputs.new-version }}
+          body: "Release v${{ needs.check-version.outputs.new-version }}"
           draft: false
           prerelease: false
