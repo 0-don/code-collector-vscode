@@ -1,9 +1,9 @@
 {
   "name": "code-collector",
-  "description": "Gather code context for AI based on imports",
   "displayName": "Code Collector",
-  "publisher": "DonCryptus",
+  "description": "Gather code context for AI based on imports",
   "version": "0.0.1",
+  "publisher": "don0",
   "engines": {
     "vscode": "^1.102.0"
   },
