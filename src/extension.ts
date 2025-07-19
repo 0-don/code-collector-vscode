@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as ts from "typescript";
 import * as vscode from "vscode";
 
 interface FileContext {
@@ -9,37 +10,29 @@ interface FileContext {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("Code Collector is now active!");
-
   const disposable = vscode.commands.registerCommand(
     "code-collector.gatherImports",
     async (uri: vscode.Uri) => {
       try {
         const filePath =
           uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-        if (!filePath) {
-          vscode.window.showErrorMessage("No file selected");
+        if (
+          !filePath ||
+          (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx"))
+        ) {
+          vscode.window.showErrorMessage("Please select a TypeScript file");
           return;
         }
-
-        vscode.window.showInformationMessage("Gathering import context...");
 
         const contexts = await gatherImportContexts(filePath);
         const output = formatContexts(contexts);
 
         await vscode.env.clipboard.writeText(output);
         vscode.window.showInformationMessage(
-          `Copied context for ${contexts.length} files to clipboard`
-        );
-
-        // Optionally save to file
-        await saveToFile(
-          output,
-          path.basename(filePath, path.extname(filePath))
+          `Copied context for ${contexts.length} files`
         );
       } catch (error) {
         vscode.window.showErrorMessage(`Error: ${error}`);
-        console.error("Code Collector error:", error);
       }
     }
   );
@@ -50,174 +43,74 @@ export function activate(context: vscode.ExtensionContext) {
 async function gatherImportContexts(filePath: string): Promise<FileContext[]> {
   const contexts: FileContext[] = [];
   const processed = new Set<string>();
+  const workspaceRoot =
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
 
-  await processFile(filePath, contexts, processed);
+  // Load tsconfig for path resolution
+  const tsConfig = loadTsConfig(workspaceRoot);
+
+  await processFile(filePath, contexts, processed, workspaceRoot, tsConfig);
   return contexts;
 }
 
 async function processFile(
   filePath: string,
   contexts: FileContext[],
-  processed: Set<string>
+  processed: Set<string>,
+  workspaceRoot: string,
+  tsConfig: any
 ): Promise<void> {
   const normalizedPath = path.resolve(filePath);
 
   if (processed.has(normalizedPath) || !fs.existsSync(normalizedPath)) {
     return;
   }
-
   processed.add(normalizedPath);
 
   const content = fs.readFileSync(normalizedPath, "utf8");
-  const workspaceRoot =
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
-  const relativePath = workspaceRoot
-    ? path.relative(workspaceRoot, normalizedPath)
-    : normalizedPath;
+  const relativePath = path.relative(workspaceRoot, normalizedPath);
 
   contexts.push({ path: normalizedPath, content, relativePath });
 
-  // Get imports using both language server and fallback parsing
-  const imports = await getImports(normalizedPath, content);
+  const imports = getImportsFromAST(
+    content,
+    path.dirname(normalizedPath),
+    tsConfig
+  );
 
   for (const importPath of imports) {
-    await processFile(importPath, contexts, processed);
+    await processFile(importPath, contexts, processed, workspaceRoot, tsConfig);
   }
 }
 
-async function getImports(
-  filePath: string,
-  content: string
-): Promise<string[]> {
+function getImportsFromAST(
+  content: string,
+  baseDir: string,
+  tsConfig: any
+): string[] {
+  const sourceFile = ts.createSourceFile(
+    "temp.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true
+  );
+
   const imports: string[] = [];
 
-  try {
-    // Try language server approach first
-    const document = await vscode.workspace.openTextDocument(filePath);
-    const languageServerImports = await getImportsFromLanguageServer(document);
-    imports.push(...languageServerImports);
-  } catch (error) {
-    console.log("Language server approach failed, falling back to parsing");
-  }
-
-  // Fallback to parsing if language server fails
-  if (imports.length === 0) {
-    const parsedImports = parseImports(content, path.dirname(filePath));
-    imports.push(...parsedImports);
-  }
-
-  return imports.filter((imp) => fs.existsSync(imp));
-}
-
-async function getImportsFromLanguageServer(
-  document: vscode.TextDocument
-): Promise<string[]> {
-  const imports: string[] = [];
-
-  for (let i = 0; i < document.lineCount; i++) {
-    const line = document.lineAt(i);
-    const importMatch = line.text.match(
-      /(?:import.*?from\s+|import\s*\(|require\s*\()\s*['"`]([^'"`]+)['"`]/
-    );
-
-    if (importMatch && isLocalImport(importMatch[1])) {
-      try {
-        const importStart = line.text.indexOf(importMatch[1]);
-        const position = new vscode.Position(i, importStart);
-
-        const locations = await vscode.commands.executeCommand<
-          vscode.Location[]
-        >("vscode.executeDefinitionProvider", document.uri, position);
-
-        if (locations && locations.length > 0) {
-          imports.push(locations[0].uri.fsPath);
-        }
-      } catch (error) {
-        // Skip this import if language server fails
-      }
-    }
-  }
-
-  return imports;
-}
-
-function parseImports(content: string, baseDir: string): string[] {
-  const imports: string[] = [];
-  const ext = path.extname(baseDir);
-
-  if ([".ts", ".tsx", ".js", ".jsx"].some((e) => content.includes(e))) {
-    imports.push(...parseJavaScriptImports(content, baseDir));
-  } else if (ext === ".java" || ext === ".kt") {
-    imports.push(...parseJavaKotlinImports(content, baseDir));
-  } else if (ext === ".py") {
-    imports.push(...parsePythonImports(content, baseDir));
-  }
-
-  return imports;
-}
-
-function parseJavaScriptImports(content: string, baseDir: string): string[] {
-  const imports: string[] = [];
-  const importRegexes = [
-    /import\s+.*?\s+from\s+['"`]([^'"`]+)['"`]/g,
-    /import\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
-    /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
-  ];
-
-  importRegexes.forEach((regex) => {
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      const importPath = match[1];
-      if (isLocalImport(importPath)) {
-        const resolved = resolveImportPath(importPath, baseDir);
+  function visit(node: ts.Node) {
+    if (ts.isImportDeclaration(node) && node.moduleSpecifier) {
+      const moduleSpecifier = (node.moduleSpecifier as ts.StringLiteral).text;
+      if (isLocalImport(moduleSpecifier)) {
+        const resolved = resolveImport(moduleSpecifier, baseDir, tsConfig);
         if (resolved) {
           imports.push(resolved);
         }
       }
     }
-  });
-
-  return imports;
-}
-
-function parseJavaKotlinImports(content: string, baseDir: string): string[] {
-  const imports: string[] = [];
-  // Basic Java/Kotlin import parsing - extend as needed
-  const importRegex = /(?:import|package)\s+([a-zA-Z0-9_.]+)/g;
-
-  let match;
-  while ((match = importRegex.exec(content)) !== null) {
-    // Convert package to file path (basic implementation)
-    const packagePath = match[1].replace(/\./g, path.sep);
-    const resolved = resolveJavaPath(packagePath, baseDir);
-    if (resolved) {
-      imports.push(resolved);
-    }
+    ts.forEachChild(node, visit);
   }
 
-  return imports;
-}
-
-function parsePythonImports(content: string, baseDir: string): string[] {
-  const imports: string[] = [];
-  const importRegexes = [
-    /from\s+([a-zA-Z0-9_.]+)\s+import/g,
-    /import\s+([a-zA-Z0-9_.]+)/g,
-  ];
-
-  importRegexes.forEach((regex) => {
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      const importPath = match[1];
-      if (importPath.startsWith(".")) {
-        const resolved = resolvePythonPath(importPath, baseDir);
-        if (resolved) {
-          imports.push(resolved);
-        }
-      }
-    }
-  });
-
+  visit(sourceFile);
   return imports;
 }
 
@@ -225,20 +118,34 @@ function isLocalImport(importPath: string): boolean {
   return importPath.startsWith(".") || importPath.startsWith("@/");
 }
 
-function resolveImportPath(importPath: string, baseDir: string): string | null {
-  // Handle @/ alias
-  if (importPath.startsWith("@/")) {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (workspaceRoot) {
-      importPath = path.join(workspaceRoot, "src", importPath.slice(2));
+function resolveImport(
+  importPath: string,
+  baseDir: string,
+  tsConfig: any
+): string | null {
+  // Handle path mapping from tsconfig
+  if (tsConfig?.compilerOptions?.paths) {
+    for (const [pattern, paths] of Object.entries(
+      tsConfig.compilerOptions.paths
+    )) {
+      const regex = new RegExp(pattern.replace("*", "(.*)"));
+      const match = importPath.match(regex);
+      if (match) {
+        const replacement = (paths as string[])[0].replace("*", match[1] || "");
+        const workspaceRoot =
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+        importPath = path.resolve(workspaceRoot, replacement);
+        break;
+      }
     }
-  } else if (importPath.startsWith(".")) {
-    importPath = path.resolve(baseDir, importPath);
-  } else {
-    return null;
   }
 
-  // Try different extensions
+  // Handle relative imports
+  if (importPath.startsWith(".")) {
+    importPath = path.resolve(baseDir, importPath);
+  }
+
+  // Try extensions
   const extensions = [".ts", ".tsx", ".js", ".jsx"];
   for (const ext of extensions) {
     const fullPath = importPath + ext;
@@ -255,93 +162,42 @@ function resolveImportPath(importPath: string, baseDir: string): string | null {
     }
   }
 
-  return fs.existsSync(importPath) ? importPath : null;
+  return null;
 }
 
-function resolveJavaPath(packagePath: string, baseDir: string): string | null {
-  // Basic Java file resolution - extend as needed
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) {
+function loadTsConfig(workspaceRoot: string): ts.ParsedCommandLine | null {
+  const configPath = ts.findConfigFile(
+    workspaceRoot,
+    ts.sys.fileExists,
+    "tsconfig.json"
+  );
+  if (!configPath) {
     return null;
   }
 
-  const srcPath = path.join(
-    workspaceRoot,
-    "src",
-    "main",
-    "java",
-    packagePath + ".java"
-  );
-  return fs.existsSync(srcPath) ? srcPath : null;
-}
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (configFile.error) {
+    return null;
+  }
 
-function resolvePythonPath(importPath: string, baseDir: string): string | null {
-  // Basic Python relative import resolution
-  const resolved = path.resolve(
-    baseDir,
-    importPath.replace(/\./g, path.sep) + ".py"
+  return ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    path.dirname(configPath)
   );
-  return fs.existsSync(resolved) ? resolved : null;
 }
 
 function formatContexts(contexts: FileContext[]): string {
-  const header = `# Code Context Collection
-Generated on: ${new Date().toISOString()}
-Total files: ${contexts.length}
+  let currentLine = 1;
+  let output = "";
 
----
+  for (const { relativePath, content } of contexts) {
+    const lines = content.split("\n");
+    const endLine = currentLine + lines.length - 1;
 
-`;
-
-  const formattedFiles = contexts
-    .map(({ relativePath, content }) => {
-      const ext = path.extname(relativePath).slice(1);
-      const language = getLanguageForExtension(ext);
-
-      return `## ${relativePath}
-
-\`\`\`${language}
-${content}
-\`\`\`
-
-`;
-    })
-    .join("\n");
-
-  return header + formattedFiles;
-}
-
-function getLanguageForExtension(ext: string): string {
-  const langMap: Record<string, string> = {
-    ts: "typescript",
-    tsx: "typescript",
-    js: "javascript",
-    jsx: "javascript",
-    java: "java",
-    kt: "kotlin",
-    py: "python",
-  };
-  return langMap[ext] || ext;
-}
-
-async function saveToFile(content: string, baseName: string): Promise<void> {
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) {
-    return;
+    output += `\n### ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
+    currentLine = endLine + 1;
   }
 
-  const outputDir = path.join(workspaceRoot, "CodeCollector");
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  const fileName = `${baseName}-context-${Date.now()}.md`;
-  const filePath = path.join(outputDir, fileName);
-
-  fs.writeFileSync(filePath, content);
-
-  const doc = await vscode.workspace.openTextDocument(filePath);
-  await vscode.window.showTextDocument(doc);
+  return output;
 }
-
-export function deactivate() {}
