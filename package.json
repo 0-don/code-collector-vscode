@@ -20,7 +20,7 @@
     "commands": [
       {
         "command": "code-collector.gatherImports",
-        "title": "Gather Import Context"
+        "title": "Code Collect"
       }
     ],
     "menus": {

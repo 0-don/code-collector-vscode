@@ -1,4 +1,4 @@
-# Context Collector
+# Code Collector
 
 A VS Code extension that gathers multi-file code context through import analysis for AI assistance. Automatically follows import chains to collect all related local files into a single, AI-friendly format.
 
@@ -16,7 +16,7 @@ A VS Code extension that gathers multi-file code context through import analysis
 
 1. Open VS Code
 2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "Context Collector"
+3. Search for "Code Collector"
 4. Click Install
 
 ## Usage
@@ -25,13 +25,13 @@ A VS Code extension that gathers multi-file code context through import analysis
 
 1. Open any TypeScript or JavaScript file
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-3. Type "Gather Import Context"
+3. Type "Code Collect"
 4. Press Enter
 
 ### Context Menu
 
 1. Right-click on any TypeScript or JavaScript file in the Explorer or Editor
-2. Select "Gather Import Context"
+2. Select "Code Collect"
 
 ### Keyboard Shortcut
 
