@@ -1,21 +1,43 @@
 {
-  "name": "code-collector",
-  "displayName": "code-collector",
-  "description": "gather code context for ai based on imports",
+ "name": "code-collector",
+  "displayName": "Code Collector",
+  "description": "Gather code context for AI based on imports",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.102.0"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "code-collector.helloWorld",
-        "title": "Hello World"
+        "command": "code-collector.gatherImports",
+        "title": "Gather Import Context"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "code-collector.gatherImports",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
+          "group": "code-collector"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "code-collector.gatherImports",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
+          "group": "code-collector"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "code-collector.gatherImports",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
       }
     ]
   },
