@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: [package.json]
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
