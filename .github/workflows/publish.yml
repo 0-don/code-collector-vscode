@@ -1,9 +1,13 @@
 name: Publish Extension
 
 on:
+  workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
     paths: ["package.json"]
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-version:
