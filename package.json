@@ -1,7 +1,8 @@
 {
   "name": "code-collector",
-  "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
+  "displayName": "Code Collector",
+  "publisher": "DonCryptus",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.102.0"
@@ -9,9 +10,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:code-collector.gatherImports"
-  ],
+  "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
