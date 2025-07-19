@@ -4,3 +4,6 @@ node_modules
 .vscode-test/
 *.vsix
 test.tsx
+bun.lock*
+yarn.lock
+pnpm-lock.yaml

@@ -1,3 +1,4 @@
+import { create, ResolveOptionsOptionalFS } from "enhanced-resolve";
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
@@ -16,11 +17,10 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         const filePath =
           uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-        if (
-          !filePath ||
-          (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx"))
-        ) {
-          vscode.window.showErrorMessage("Please select a TypeScript file");
+        if (!filePath || !isSupportedFile(filePath)) {
+          vscode.window.showErrorMessage(
+            "Please select a TypeScript or JavaScript file"
+          );
           return;
         }
 
@@ -40,17 +40,79 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(disposable);
 }
 
+function isSupportedFile(filePath: string): boolean {
+  return /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(filePath);
+}
+
 async function gatherImportContexts(filePath: string): Promise<FileContext[]> {
   const contexts: FileContext[] = [];
   const processed = new Set<string>();
   const workspaceRoot =
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
 
-  // Load tsconfig for path resolution
-  const tsConfig = loadTsConfig(workspaceRoot);
+  const resolver = createResolver(workspaceRoot);
 
-  await processFile(filePath, contexts, processed, workspaceRoot, tsConfig);
+  await processFile(filePath, contexts, processed, workspaceRoot, resolver);
   return contexts;
+}
+
+function createResolver(workspaceRoot: string) {
+  const tsConfigPath = findTsConfig(workspaceRoot);
+
+  const resolverOptions: ResolveOptionsOptionalFS = {
+    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    conditionNames: ["node", "import", "require", "default"],
+    fileSystem: fs,
+  };
+
+  // Add tsconfig path mappings if available
+  if (tsConfigPath) {
+    try {
+      const tsConfig = JSON.parse(fs.readFileSync(tsConfigPath, "utf8"));
+      if (
+        tsConfig.compilerOptions?.baseUrl ||
+        tsConfig.compilerOptions?.paths
+      ) {
+        const baseUrl = tsConfig.compilerOptions.baseUrl || ".";
+        const absoluteBaseUrl = path.resolve(
+          path.dirname(tsConfigPath),
+          baseUrl
+        );
+
+        resolverOptions.alias = {};
+        if (tsConfig.compilerOptions.paths) {
+          for (const [pattern, paths] of Object.entries(
+            tsConfig.compilerOptions.paths as Record<string, string[]>
+          )) {
+            const aliasKey = pattern.replace("/*", "");
+            const aliasPath = path.resolve(
+              absoluteBaseUrl,
+              paths[0].replace("/*", "")
+            );
+            resolverOptions.alias[aliasKey] = aliasPath;
+          }
+        }
+      }
+    } catch (error) {
+      console.log("Error reading tsconfig:", error);
+    }
+  }
+
+  return create.sync(resolverOptions);
+}
+
+function findTsConfig(workspaceRoot: string): string | null {
+  const tsConfigPath = path.join(workspaceRoot, "tsconfig.json");
+  if (fs.existsSync(tsConfigPath)) {
+    return tsConfigPath;
+  }
+
+  const jsConfigPath = path.join(workspaceRoot, "jsconfig.json");
+  if (fs.existsSync(jsConfigPath)) {
+    return jsConfigPath;
+  }
+
+  return null;
 }
 
 async function processFile(
@@ -58,15 +120,14 @@ async function processFile(
   contexts: FileContext[],
   processed: Set<string>,
   workspaceRoot: string,
-  tsConfig: any
+  resolver: any
 ): Promise<void> {
   const normalizedPath = path.resolve(filePath);
-
   if (processed.has(normalizedPath) || !fs.existsSync(normalizedPath)) {
     return;
   }
-  processed.add(normalizedPath);
 
+  processed.add(normalizedPath);
   const content = fs.readFileSync(normalizedPath, "utf8");
   const relativePath = path.relative(workspaceRoot, normalizedPath);
 
@@ -75,38 +136,76 @@ async function processFile(
   const imports = getImportsFromAST(
     content,
     path.dirname(normalizedPath),
-    tsConfig
+    resolver,
+    filePath
   );
-
   for (const importPath of imports) {
-    await processFile(importPath, contexts, processed, workspaceRoot, tsConfig);
+    await processFile(importPath, contexts, processed, workspaceRoot, resolver);
   }
 }
 
 function getImportsFromAST(
   content: string,
   baseDir: string,
-  tsConfig: any
+  resolver: any,
+  filePath: string
 ): string[] {
+  const isTypeScript = /\.(ts|tsx)$/.test(filePath);
+  const scriptTarget = isTypeScript
+    ? ts.ScriptTarget.Latest
+    : ts.ScriptTarget.ES2020;
+  const scriptKind = getScriptKind(filePath);
+
   const sourceFile = ts.createSourceFile(
-    "temp.ts",
+    path.basename(filePath),
     content,
-    ts.ScriptTarget.Latest,
-    true
+    scriptTarget,
+    true,
+    scriptKind
   );
 
   const imports: string[] = [];
 
   function visit(node: ts.Node) {
+    // Handle ES6 imports
     if (ts.isImportDeclaration(node) && node.moduleSpecifier) {
       const moduleSpecifier = (node.moduleSpecifier as ts.StringLiteral).text;
-      if (isLocalImport(moduleSpecifier)) {
-        const resolved = resolveImport(moduleSpecifier, baseDir, tsConfig);
+      const resolved = resolveImport(moduleSpecifier, baseDir, resolver);
+      if (resolved) {
+        imports.push(resolved);
+      }
+    }
+
+    // Handle dynamic imports
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      const arg = node.arguments[0];
+      if (ts.isStringLiteral(arg)) {
+        const resolved = resolveImport(arg.text, baseDir, resolver);
         if (resolved) {
           imports.push(resolved);
         }
       }
     }
+
+    // Handle CommonJS require()
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "require" &&
+      node.arguments.length > 0
+    ) {
+      const arg = node.arguments[0];
+      if (ts.isStringLiteral(arg)) {
+        const resolved = resolveImport(arg.text, baseDir, resolver);
+        if (resolved) {
+          imports.push(resolved);
+        }
+      }
+    }
+
     ts.forEachChild(node, visit);
   }
 
@@ -114,77 +213,36 @@ function getImportsFromAST(
   return imports;
 }
 
-function isLocalImport(importPath: string): boolean {
-  return importPath.startsWith(".") || importPath.startsWith("@/");
+function getScriptKind(filePath: string): ts.ScriptKind {
+  const ext = path.extname(filePath);
+  switch (ext) {
+    case ".tsx":
+      return ts.ScriptKind.TSX;
+    case ".ts":
+      return ts.ScriptKind.TS;
+    case ".jsx":
+      return ts.ScriptKind.JSX;
+    case ".mjs":
+      return ts.ScriptKind.JS;
+    case ".cjs":
+      return ts.ScriptKind.JS;
+    default:
+      return ts.ScriptKind.JS;
+  }
 }
 
 function resolveImport(
   importPath: string,
   baseDir: string,
-  tsConfig: any
+  resolver: any
 ): string | null {
-  // Handle path mapping from tsconfig
-  if (tsConfig?.compilerOptions?.paths) {
-    for (const [pattern, paths] of Object.entries(
-      tsConfig.compilerOptions.paths
-    )) {
-      const regex = new RegExp(pattern.replace("*", "(.*)"));
-      const match = importPath.match(regex);
-      if (match) {
-        const replacement = (paths as string[])[0].replace("*", match[1] || "");
-        const workspaceRoot =
-          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
-        importPath = path.resolve(workspaceRoot, replacement);
-        break;
-      }
-    }
-  }
-
-  // Handle relative imports
-  if (importPath.startsWith(".")) {
-    importPath = path.resolve(baseDir, importPath);
-  }
-
-  // Try extensions
-  const extensions = [".ts", ".tsx", ".js", ".jsx"];
-  for (const ext of extensions) {
-    const fullPath = importPath + ext;
-    if (fs.existsSync(fullPath)) {
-      return fullPath;
-    }
-  }
-
-  // Try index files
-  for (const ext of extensions) {
-    const indexPath = path.join(importPath, "index" + ext);
-    if (fs.existsSync(indexPath)) {
-      return indexPath;
-    }
-  }
-
-  return null;
-}
-
-function loadTsConfig(workspaceRoot: string): ts.ParsedCommandLine | null {
-  const configPath = ts.findConfigFile(
-    workspaceRoot,
-    ts.sys.fileExists,
-    "tsconfig.json"
-  );
-  if (!configPath) {
+  try {
+    const resolved = resolver(baseDir, importPath);
+    // Only include local files (not from node_modules)
+    return resolved && !resolved.includes("node_modules") ? resolved : null;
+  } catch {
     return null;
   }
-
-  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-  if (configFile.error) {
-    return null;
-  }
-
-  return ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    path.dirname(configPath)
-  );
 }
 
 function formatContexts(contexts: FileContext[]): string {
@@ -194,10 +252,11 @@ function formatContexts(contexts: FileContext[]): string {
   for (const { relativePath, content } of contexts) {
     const lines = content.split("\n");
     const endLine = currentLine + lines.length - 1;
-
     output += `\n// ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
     currentLine = endLine + 1;
   }
 
   return output;
 }
+
+export function deactivate() {}
