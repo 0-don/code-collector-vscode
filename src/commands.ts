@@ -1,12 +1,10 @@
 import * as vscode from "vscode";
-import { ContextCollector } from "../core/context-collector";
-import { FileProcessor } from "../core/file-processor";
-import { FileContext } from "../types";
-import { getFilesToProcess, getWorkspaceRoot } from "../utils/file-selection";
-import { formatContexts } from "../utils/format-utils";
+import { ContextCollector } from "./core";
+import { FileContext } from "./types";
+import { getFilesToProcess, getWorkspaceRoot } from "./utils/file-selection";
+import { formatContexts } from "./utils/format-utils";
 
 export class CommandHandler {
-  private fileProcessor = new FileProcessor();
   private contextCollector = new ContextCollector();
 
   async handleGatherImports(
@@ -26,7 +24,7 @@ export class CommandHandler {
       const workspaceRoot = getWorkspaceRoot();
 
       for (const filePath of filesToProcess) {
-        await this.fileProcessor.processFile(
+        await this.contextCollector.processFile(
           filePath,
           allContexts,
           processed,
