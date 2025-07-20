@@ -367,7 +367,7 @@ function formatContexts(contexts: FileContext[]): string {
   for (const { relativePath, content } of contexts) {
     const lines = content.split("\n");
     const endLine = currentLine + lines.length - 1;
-    output += `\n### ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
+    output += `\n// ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
     currentLine = endLine + 1;
   }
 
