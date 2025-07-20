@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/0-don/code-collector.git"
   },
   "engines": {
-    "vscode": "^1.99.3"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Other"
@@ -131,7 +131,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
-    "@types/vscode": "^1.99.3",
+    "@types/vscode": "1.80.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.11",
