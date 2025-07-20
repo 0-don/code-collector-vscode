@@ -32,7 +32,7 @@
       "explorer/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
           "group": "navigation@0"
         },
         {
@@ -43,7 +43,7 @@
       "editor/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
           "group": "navigation@0"
         },
         {

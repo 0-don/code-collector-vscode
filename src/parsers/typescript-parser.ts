@@ -5,7 +5,7 @@ import { BaseParser } from "./base-parser";
 
 export class TypeScriptParser extends BaseParser {
   config: ParserConfig = {
-    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"],
     name: "TypeScript/JavaScript",
   };
 
@@ -87,6 +87,8 @@ export class TypeScriptParser extends BaseParser {
       case ".tsx":
         return ts.ScriptKind.TSX;
       case ".ts":
+      case ".mts":
+      case ".cts":
         return ts.ScriptKind.TS;
       case ".jsx":
         return ts.ScriptKind.JSX;
