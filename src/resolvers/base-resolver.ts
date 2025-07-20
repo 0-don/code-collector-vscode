@@ -7,7 +7,7 @@ export abstract class BaseResolver {
     importPath: string,
     baseDir: string,
     workspaceRoot: string
-  ): string | null;
+  ): Promise<string | null> | string | null;
 
   canHandle(filePath: string): boolean {
     const ext = filePath.split(".").pop()?.toLowerCase();

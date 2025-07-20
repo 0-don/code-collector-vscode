@@ -67,7 +67,7 @@ export class ContextCollector {
       const imports = await parser.parseImports(content, filePath);
 
       for (const importInfo of imports) {
-        const resolvedPath = resolver.resolve(
+        const resolvedPath = await resolver.resolve(
           importInfo.module,
           path.dirname(normalizedPath),
           workspaceRoot

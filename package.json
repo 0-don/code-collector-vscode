@@ -117,6 +117,8 @@
   },
   "dependencies": {
     "enhanced-resolve": "^5.18.2",
+    "fast-xml-parser": "^5.2.5",
+    "gradle-to-js": "^2.0.1",
     "java-parser": "^3.0.1"
   }
 }
