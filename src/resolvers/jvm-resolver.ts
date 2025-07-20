@@ -23,17 +23,22 @@ interface GradleBuild {
       java?: {
         srcDirs?: string | string[];
       };
+      kotlin?: {
+        srcDirs?: string | string[];
+      };
     }
   >;
 }
 
-export class JavaResolver extends BaseResolver {
+export class JvmResolver extends BaseResolver {
   config: ResolverConfig = {
-    extensions: [".java"],
+    extensions: [".java", ".kt"],
     configFiles: [
       "pom.xml",
       "build.gradle",
+      "build.gradle.kts",
       "settings.gradle",
+      "settings.gradle.kts",
       "module-info.java",
     ],
   };
@@ -45,14 +50,17 @@ export class JavaResolver extends BaseResolver {
     baseDir: string,
     workspaceRoot: string
   ): Promise<string | null> {
-    const classPath = importPath.replace(/\./g, "/") + ".java";
+    const classPath = importPath.replace(/\./g, "/");
     const projectInfo = await this.getProjectInfo(workspaceRoot);
 
     // Try all source directories from project analysis
     for (const sourceDir of projectInfo.sourceDirs) {
-      const fullPath = path.join(sourceDir, classPath);
-      if (fs.existsSync(fullPath)) {
-        return fullPath;
+      // Try both .java and .kt extensions
+      for (const ext of [".java", ".kt"]) {
+        const fullPath = path.join(sourceDir, classPath + ext);
+        if (fs.existsSync(fullPath)) {
+          return fullPath;
+        }
       }
     }
 
@@ -80,7 +88,7 @@ export class JavaResolver extends BaseResolver {
       info.type = "gradle";
       await this.setupGradleProject(workspaceRoot, info);
     }
-    // Fallback to simple Java project
+    // Fallback to simple JVM project
     else {
       info.sourceDirs = this.getDefaultSourceDirs(workspaceRoot);
     }
@@ -106,9 +114,11 @@ export class JavaResolver extends BaseResolver {
         const pomContent = fs.readFileSync(pomPath, "utf8");
         const result: MavenProject = xmlParser.parse(pomContent);
 
-        // Add main source directory
+        // Add main source directories for both Java and Kotlin
         info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
+        info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));
         info.sourceDirs.push(path.join(workspaceRoot, "src/test/java"));
+        info.sourceDirs.push(path.join(workspaceRoot, "src/test/kotlin"));
 
         // Check for modules
         const modules = result?.project?.modules?.[0]?.module || [];
@@ -116,14 +126,18 @@ export class JavaResolver extends BaseResolver {
           const modulePath = path.join(workspaceRoot, module);
           info.modules.push(module);
           info.sourceDirs.push(path.join(modulePath, "src/main/java"));
+          info.sourceDirs.push(path.join(modulePath, "src/main/kotlin"));
           info.sourceDirs.push(path.join(modulePath, "src/test/java"));
+          info.sourceDirs.push(path.join(modulePath, "src/test/kotlin"));
         }
       }
     } catch (error) {
       console.log("Error parsing Maven project:", error);
       // Fallback to convention
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/test/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/test/kotlin"));
     }
 
     // Filter to only existing directories
@@ -137,57 +151,86 @@ export class JavaResolver extends BaseResolver {
     try {
       const g2js = await import("gradle-to-js/lib/parser");
 
-      // Parse settings.gradle for multi-module setup
-      const settingsPath = path.join(workspaceRoot, "settings.gradle");
-      if (fs.existsSync(settingsPath)) {
-        const settingsObj: GradleSettings = await g2js.parseFile(settingsPath);
+      // Parse settings.gradle for multi-module setup (check both .gradle and .gradle.kts)
+      const settingsFiles = ["settings.gradle", "settings.gradle.kts"];
+      for (const settingsFile of settingsFiles) {
+        const settingsPath = path.join(workspaceRoot, settingsFile);
+        if (fs.existsSync(settingsPath)) {
+          const settingsObj: GradleSettings = await g2js.parseFile(
+            settingsPath
+          );
 
-        // Extract included projects
-        if (settingsObj.include) {
-          const includes = Array.isArray(settingsObj.include)
-            ? settingsObj.include
-            : [settingsObj.include];
+          // Extract included projects
+          if (settingsObj.include) {
+            const includes = Array.isArray(settingsObj.include)
+              ? settingsObj.include
+              : [settingsObj.include];
 
-          for (const include of includes) {
-            const moduleName = include.replace(/['"]/g, "");
-            const modulePath = path.join(workspaceRoot, moduleName);
-            info.modules.push(moduleName);
-            info.sourceDirs.push(path.join(modulePath, "src/main/java"));
-            info.sourceDirs.push(path.join(modulePath, "src/test/java"));
+            for (const include of includes) {
+              const moduleName = include.replace(/['"]/g, "");
+              const modulePath = path.join(workspaceRoot, moduleName);
+              info.modules.push(moduleName);
+              info.sourceDirs.push(path.join(modulePath, "src/main/java"));
+              info.sourceDirs.push(path.join(modulePath, "src/main/kotlin"));
+              info.sourceDirs.push(path.join(modulePath, "src/test/java"));
+              info.sourceDirs.push(path.join(modulePath, "src/test/kotlin"));
+            }
           }
+          break; // Stop after finding first settings file
         }
       }
 
-      // Parse build.gradle for source sets
-      const buildPath = path.join(workspaceRoot, "build.gradle");
-      if (fs.existsSync(buildPath)) {
-        const buildObj: GradleBuild = await g2js.parseFile(buildPath);
+      // Parse build.gradle for source sets (check both .gradle and .gradle.kts)
+      const buildFiles = ["build.gradle", "build.gradle.kts"];
+      for (const buildFile of buildFiles) {
+        const buildPath = path.join(workspaceRoot, buildFile);
+        if (fs.existsSync(buildPath)) {
+          const buildObj: GradleBuild = await g2js.parseFile(buildPath);
 
-        // Check for custom source sets
-        if (buildObj.sourceSets) {
-          Object.keys(buildObj.sourceSets).forEach((sourceSetName) => {
-            const sourceSet = buildObj.sourceSets![sourceSetName];
-            if (sourceSet.java?.srcDirs) {
-              const srcDirs = Array.isArray(sourceSet.java.srcDirs)
-                ? sourceSet.java.srcDirs
-                : [sourceSet.java.srcDirs];
+          // Check for custom source sets
+          if (buildObj.sourceSets) {
+            Object.keys(buildObj.sourceSets).forEach((sourceSetName) => {
+              const sourceSet = buildObj.sourceSets![sourceSetName];
 
-              srcDirs.forEach((srcDir: string) => {
-                info.sourceDirs.push(path.join(workspaceRoot, srcDir));
-              });
-            }
-          });
+              // Handle Java source directories
+              if (sourceSet.java?.srcDirs) {
+                const srcDirs = Array.isArray(sourceSet.java.srcDirs)
+                  ? sourceSet.java.srcDirs
+                  : [sourceSet.java.srcDirs];
+
+                srcDirs.forEach((srcDir: string) => {
+                  info.sourceDirs.push(path.join(workspaceRoot, srcDir));
+                });
+              }
+
+              // Handle Kotlin source directories
+              if (sourceSet.kotlin?.srcDirs) {
+                const srcDirs = Array.isArray(sourceSet.kotlin.srcDirs)
+                  ? sourceSet.kotlin.srcDirs
+                  : [sourceSet.kotlin.srcDirs];
+
+                srcDirs.forEach((srcDir: string) => {
+                  info.sourceDirs.push(path.join(workspaceRoot, srcDir));
+                });
+              }
+            });
+          }
+          break; // Stop after finding first build file
         }
       }
 
       // Always add conventional directories
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/test/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/test/kotlin"));
     } catch (error) {
       console.log("Error parsing Gradle project:", error);
       // Fallback to convention
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/test/java"));
+      info.sourceDirs.push(path.join(workspaceRoot, "src/test/kotlin"));
     }
 
     // Filter to only existing directories
@@ -197,7 +240,9 @@ export class JavaResolver extends BaseResolver {
   private getDefaultSourceDirs(workspaceRoot: string): string[] {
     const sourceDirs = [
       path.join(workspaceRoot, "src/main/java"),
+      path.join(workspaceRoot, "src/main/kotlin"),
       path.join(workspaceRoot, "src/test/java"),
+      path.join(workspaceRoot, "src/test/kotlin"),
       path.join(workspaceRoot, "src"),
     ];
 
@@ -211,7 +256,9 @@ export class JavaResolver extends BaseResolver {
   private isGradleProject(workspaceRoot: string): boolean {
     return (
       fs.existsSync(path.join(workspaceRoot, "build.gradle")) ||
-      fs.existsSync(path.join(workspaceRoot, "build.gradle.kts"))
+      fs.existsSync(path.join(workspaceRoot, "build.gradle.kts")) ||
+      fs.existsSync(path.join(workspaceRoot, "settings.gradle")) ||
+      fs.existsSync(path.join(workspaceRoot, "settings.gradle.kts"))
     );
   }
 }

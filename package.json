@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -119,6 +119,8 @@
     "enhanced-resolve": "^5.18.2",
     "fast-xml-parser": "^5.2.5",
     "gradle-to-js": "^2.0.1",
-    "java-parser": "^3.0.1"
+    "java-parser": "^3.0.1",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-kotlin": "^0.3.8"
   }
 }

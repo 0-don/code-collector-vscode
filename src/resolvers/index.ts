@@ -1,9 +1,9 @@
 import { BaseResolver } from "./base-resolver";
-import { JavaResolver } from "./java-resolver";
+import { JvmResolver } from "./jvm-resolver";
 import { NodeResolver } from "./node-resolver";
 
 export class ResolverRegistry {
-  private resolvers: BaseResolver[] = [new NodeResolver(), new JavaResolver()];
+  private resolvers: BaseResolver[] = [new NodeResolver(), new JvmResolver()];
 
   getResolver(filePath: string): BaseResolver | null {
     return (

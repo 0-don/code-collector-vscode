@@ -1,9 +1,14 @@
 import { BaseParser } from "./base-parser";
 import { JavaParser } from "./java-parser";
+import { KotlinParser } from "./kotlin-parser";
 import { TypeScriptParser } from "./typescript-parser";
 
 export class ParserRegistry {
-  private parsers: BaseParser[] = [new TypeScriptParser(), new JavaParser()];
+  private parsers: BaseParser[] = [
+    new TypeScriptParser(),
+    new JavaParser(),
+    new KotlinParser(),
+  ];
 
   getParser(filePath: string): BaseParser | null {
     return this.parsers.find((parser) => parser.canHandle(filePath)) || null;
