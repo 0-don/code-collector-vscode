@@ -1,6 +1,7 @@
 import { BaseParser } from "./base-parser";
 import { JavaParser } from "./java-parser";
 import { KotlinParser } from "./kotlin-parser";
+import { PythonParser } from "./python-parser";
 import { TypeScriptParser } from "./typescript-parser";
 
 export class ParserRegistry {
@@ -8,6 +9,7 @@ export class ParserRegistry {
     new TypeScriptParser(),
     new JavaParser(),
     new KotlinParser(),
+    new PythonParser(),
   ];
 
   getParser(filePath: string): BaseParser | null {

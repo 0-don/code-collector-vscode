@@ -6,7 +6,7 @@ export interface FileContext {
 
 export interface ImportInfo {
   module: string;
-  type: 'import' | 'require' | 'dynamic';
+  type: "import" | "require" | "dynamic" | "from";
   line?: number;
 }
 

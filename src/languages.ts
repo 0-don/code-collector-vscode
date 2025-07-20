@@ -7,4 +7,5 @@ export const supportedExtensions = [
   ".cjs",
   ".java",
   ".kt",
+  ".py",
 ] as const;

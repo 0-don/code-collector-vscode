@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -32,7 +32,7 @@
       "explorer/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
           "group": "navigation@0"
         },
         {
@@ -43,7 +43,7 @@
       "editor/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
           "group": "navigation@0"
         },
         {
@@ -70,18 +70,44 @@
           },
           "default": [
             "node_modules/**",
-            "target/**",
-            ".git/**",
+            ".next/**",
             "dist/**",
             "build/**",
-            ".next/**",
             "out/**",
             "*.log",
             "*.lock",
             "package-lock.json",
             "pnpm-lock.yaml",
             "bun.lock*",
-            "yarn-error.log"
+            "yarn-error.log",
+            ".next/**",
+            ".nuxt/**",
+            ".output/**",
+            ".svelte-kit/**",
+            ".vite/**",
+            ".turbo/**",
+            ".vercel/**",
+            ".netlify/**",
+            "public/build/**",
+            "app/build/**",
+            ".cache/**",
+            ".parcel-cache/**",
+            ".rollup.cache/**",
+            "coverage/**",
+            ".nyc_output/**",
+            "storybook-static/**",
+            "target/**",
+            ".gradle/**",
+            "gradlew",
+            "gradlew.bat",
+            "__pycache__/**",
+            "*.pyc",
+            ".venv/**",
+            "venv/**",
+            "*.egg-info/**",
+            ".git/**",
+            ".idea/**",
+            ".DS_Store"
           ],
           "description": "Glob patterns for files to ignore when collecting all code"
         }

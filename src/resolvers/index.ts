@@ -1,9 +1,14 @@
 import { BaseResolver } from "./base-resolver";
 import { JvmResolver } from "./jvm-resolver";
 import { NodeResolver } from "./node-resolver";
+import { PythonResolver } from "./python-resolver";
 
 export class ResolverRegistry {
-  private resolvers: BaseResolver[] = [new NodeResolver(), new JvmResolver()];
+  private resolvers: BaseResolver[] = [
+    new NodeResolver(),
+    new JvmResolver(),
+    new PythonResolver(),
+  ];
 
   getResolver(filePath: string): BaseResolver | null {
     return (
