@@ -37,7 +37,7 @@
         },
         {
           "command": "code-collector.collectAll",
-          "group": "navigation@1"
+          "group": "navigation@99"
         }
       ],
       "editor/context": [
@@ -48,7 +48,7 @@
         },
         {
           "command": "code-collector.collectAll",
-          "group": "navigation@1"
+          "group": "navigation@99"
         }
       ]
     },
