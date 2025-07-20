@@ -1,43 +1,35 @@
 # Code Collector
 
-A VS Code extension that gathers multi-file code context through import analysis for AI assistance. Automatically follows import chains to collect all related local files into a single, AI-friendly format.
+A VS Code extension that gathers code context for AI assistance by analyzing imports and collecting related files.
 
 ## Features
 
-- **Smart Import Analysis**: Uses TypeScript AST parsing to accurately detect all import types (ES6, dynamic imports, CommonJS require)
-- **Multi-File Context**: Automatically follows import chains to gather all related local files
-- **TypeScript & JavaScript Support**: Works with `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, and `.cjs` files
-- **Path Mapping Support**: Handles `tsconfig.json` and `jsconfig.json` path mappings (e.g., `@/`, aliases)
-- **Enhanced Resolution**: Uses webpack's battle-tested `enhanced-resolve` library for accurate module resolution
-- **Duplicate Prevention**: Prevents circular imports and duplicate files in output
-- **AI-Optimized Format**: Outputs code with line numbers and file headers for easy AI consumption
-
-## Installation
-
-1. Open VS Code
-2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "Code Collector"
-4. Click Install
+- **Smart Import Analysis**: Follows import chains to collect all related local files
+- **Multi-Language Support**: TypeScript, JavaScript, Java, Kotlin
+- **Path Mapping Support**: Handles tsconfig.json aliases and path mappings
+- **AI-Optimized Output**: Line numbers and file headers for easy AI consumption
+- **Collect All**: Option to collect entire workspace with configurable ignore patterns
 
 ## Usage
 
-### Command Palette
+### Code Collect (Import-based)
+- **Keyboard**: `Ctrl+Shift+G` (`Cmd+Shift+G` on Mac)
+- **Context Menu**: Right-click file(s) → "Code Collect"
+- **Command Palette**: `Ctrl+Shift+P` → "Code Collect"
 
-1. Open any TypeScript or JavaScript file
-2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
-3. Type "Code Collect"
-4. Press Enter
+### Code Collect All
+- **Context Menu**: Right-click in Explorer → "Code Collect All"
+- **Command Palette**: `Ctrl+Shift+P` → "Code Collect All"
 
-### Context Menu
+## Configuration
 
-1. Right-click on any TypeScript or JavaScript file in the Explorer or Editor
-2. Select "Code Collect"
-
-### Keyboard Shortcut
-
-- **Windows/Linux**: `Ctrl+Shift+G`
-- **macOS**: `Cmd+Shift+G`
-
-## Output Format
-
-The extension copies collected context to your clipboard in this format:
+```json
+{
+ "codeCollector.ignorePatterns": [
+   "node_modules/**",
+   "dist/**",
+   "build/**",
+   "*.log"
+ ]
+}
+```
