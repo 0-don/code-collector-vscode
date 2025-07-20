@@ -8,31 +8,35 @@ export class JavaParser extends BaseParser {
   };
 
   async parseImports(content: string, filePath: string): Promise<ImportInfo[]> {
-    const imports: ImportInfo[] = [];
-
     try {
-      // Dynamic import to handle ESM module
+      // Try AST parsing first
       const { parse } = await import("java-parser");
-      const cst = parse(content) as any; // Cast to any to bypass typing issues
-
-      // Now we can safely access children
+      const cst = parse(content) as any;
       const cu = cst.children?.compilationUnit?.[0];
 
       if (cu?.children?.importDeclaration) {
+        const imports: ImportInfo[] = [];
         cu.children.importDeclaration.forEach((importDecl: any) => {
           const importInfo = this.extractImportInfo(importDecl, content);
           if (importInfo) {
             imports.push(importInfo);
           }
         });
+
+        // If we got imports from AST, return them
+        if (imports.length > 0) {
+          return imports;
+        }
       }
     } catch (error) {
-      console.log(`Failed to parse Java file ${filePath}:`, error);
-      // Fallback to regex parsing if AST fails
-      return this.fallbackRegexParsing(content);
+      console.log(
+        `AST parsing failed for ${filePath}, using regex fallback:`,
+        error
+      );
     }
 
-    return imports;
+    // Always fall back to regex parsing
+    return this.fallbackRegexParsing(content);
   }
 
   private extractImportInfo(
