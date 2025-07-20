@@ -57,7 +57,7 @@ export class CommandHandler {
 
       await vscode.env.clipboard.writeText(output);
       vscode.window.showInformationMessage(
-        `Copied all code context for ${contexts.length} files`
+        `Copied all code context for ${contexts.length} files!`
       );
     } catch (error) {
       vscode.window.showErrorMessage(`Error: ${error}`);

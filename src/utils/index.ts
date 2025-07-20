@@ -34,6 +34,7 @@ export function isSupportedFile(filePath: string): boolean {
     ".mjs",
     ".cjs",
     ".java",
+    ".kt",
   ];
   return supportedExtensions.some((ext) => filePath.endsWith(ext));
 }
