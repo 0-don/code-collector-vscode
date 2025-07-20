@@ -45,11 +45,6 @@ export class JavaResolver extends BaseResolver {
     baseDir: string,
     workspaceRoot: string
   ): Promise<string | null> {
-    // Skip standard Java library imports
-    if (this.isStandardLibraryImport(importPath)) {
-      return null;
-    }
-
     const classPath = importPath.replace(/\./g, "/") + ".java";
     const projectInfo = await this.getProjectInfo(workspaceRoot);
 
@@ -62,20 +57,6 @@ export class JavaResolver extends BaseResolver {
     }
 
     return null;
-  }
-
-  private isStandardLibraryImport(importPath: string): boolean {
-    const standardPrefixes = [
-      "java.",
-      "javax.",
-      "jakarta.",
-      "org.springframework.",
-      "org.apache.",
-      "com.fasterxml.jackson.",
-      // Add other common library prefixes
-    ];
-
-    return standardPrefixes.some((prefix) => importPath.startsWith(prefix));
   }
 
   private async getProjectInfo(workspaceRoot: string): Promise<ProjectInfo> {
