@@ -13,24 +13,54 @@ interface FileContext {
 export function activate(context: vscode.ExtensionContext) {
   const disposable = vscode.commands.registerCommand(
     "code-collector.gatherImports",
-    async (uri: vscode.Uri) => {
+    async (clickedUri: vscode.Uri, selectedUris: vscode.Uri[]) => {
       try {
-        const filePath =
-          uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-        if (!filePath || !isSupportedFile(filePath)) {
+        let filePaths: string[] = [];
+
+        // Check if we have multiple selected files
+        if (selectedUris && selectedUris.length > 1) {
+          // Multi-select case: use all selected files
+          filePaths = selectedUris
+            .filter((uri) => uri && isSupportedFile(uri.fsPath))
+            .map((uri) => uri.fsPath);
+        } else {
+          // Single file case: use clicked file or active editor
+          const filePath =
+            clickedUri?.fsPath ||
+            vscode.window.activeTextEditor?.document.fileName;
+          if (filePath && isSupportedFile(filePath)) {
+            filePaths = [filePath];
+          }
+        }
+
+        if (filePaths.length === 0) {
           vscode.window.showErrorMessage(
-            "Please select a TypeScript or JavaScript file"
+            "Please select TypeScript or JavaScript files"
           );
           return;
         }
 
-        const contexts = await gatherImportContexts(filePath);
-        const output = formatContexts(contexts);
+        // Process all selected files with shared processed set to avoid duplicates
+        const allContexts: FileContext[] = [];
+        const globalProcessed = new Set<string>();
 
+        for (const filePath of filePaths) {
+          const contexts = await gatherImportContexts(
+            filePath,
+            globalProcessed
+          );
+          allContexts.push(...contexts);
+        }
+
+        const output = formatContexts(allContexts);
         await vscode.env.clipboard.writeText(output);
-        vscode.window.showInformationMessage(
-          `Copied context for ${contexts.length} files`
-        );
+
+        const message =
+          filePaths.length > 1
+            ? `Copied context for ${allContexts.length} files from ${filePaths.length} selected files`
+            : `Copied context for ${allContexts.length} files`;
+
+        vscode.window.showInformationMessage(message);
       } catch (error) {
         vscode.window.showErrorMessage(`Error: ${error}`);
       }
@@ -44,12 +74,14 @@ function isSupportedFile(filePath: string): boolean {
   return /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(filePath);
 }
 
-async function gatherImportContexts(filePath: string): Promise<FileContext[]> {
+async function gatherImportContexts(
+  filePath: string,
+  globalProcessed?: Set<string>
+): Promise<FileContext[]> {
   const contexts: FileContext[] = [];
-  const processed = new Set<string>();
+  const processed = globalProcessed || new Set<string>();
   const workspaceRoot =
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
-
   const resolver = createResolver(workspaceRoot);
 
   await processFile(filePath, contexts, processed, workspaceRoot, resolver);
