@@ -23,23 +23,26 @@ export class KotlinParser extends BaseParser {
         continue;
       }
 
-      // Stop at package declaration or first non-import code
-      if (
-        line.startsWith("package ") ||
-        (line &&
-          !line.startsWith("import ") &&
-          !line.startsWith("@") &&
-          !line.startsWith("/*"))
-      ) {
-        break;
-      }
-
       // Parse import statements
       if (line.startsWith("import ")) {
         const importInfo = this.parseImportLine(line, i + 1);
         if (importInfo) {
           imports.push(importInfo);
         }
+      }
+
+      // Stop after we've seen actual code (not package/imports/annotations)
+      if (
+        line &&
+        !line.startsWith("package ") &&
+        !line.startsWith("import ") &&
+        !line.startsWith("@") &&
+        !line.startsWith("/*") &&
+        !line.startsWith("*") &&
+        !line.endsWith("*/")
+      ) {
+        // We've hit actual code, stop looking for imports
+        break;
       }
     }
 
