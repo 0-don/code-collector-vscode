@@ -13,23 +13,58 @@ interface FileContext {
 export function activate(context: vscode.ExtensionContext) {
   const gatherImportsDisposable = vscode.commands.registerCommand(
     "code-collector.gatherImports",
-    async (uri: vscode.Uri) => {
+    async (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) => {
       try {
-        const filePath =
-          uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-        if (!filePath || !isSupportedFile(filePath)) {
+        // Handle multiple file selection
+        const filesToProcess: string[] = [];
+
+        if (selectedFiles && selectedFiles.length > 0) {
+          // Multiple files selected in explorer
+          filesToProcess.push(
+            ...selectedFiles.map((f) => f.fsPath).filter(isSupportedFile)
+          );
+        } else if (uri?.fsPath && isSupportedFile(uri.fsPath)) {
+          // Single file from context menu or command
+          filesToProcess.push(uri.fsPath);
+        } else if (vscode.window.activeTextEditor?.document.fileName) {
+          // Fallback to active editor
+          const activeFile = vscode.window.activeTextEditor.document.fileName;
+          if (isSupportedFile(activeFile)) {
+            filesToProcess.push(activeFile);
+          }
+        }
+
+        if (filesToProcess.length === 0) {
           vscode.window.showErrorMessage(
-            "Please select a TypeScript or JavaScript file"
+            "Please select TypeScript or JavaScript files"
           );
           return;
         }
 
-        const contexts = await gatherImportContexts(filePath);
-        const output = formatContexts(contexts);
+        // Collect contexts from all selected files
+        const allContexts: FileContext[] = [];
+        const processed = new Set<string>();
+        const workspaceRoot =
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+        const resolver = createResolver(workspaceRoot);
 
+        for (const filePath of filesToProcess) {
+          await processFile(
+            filePath,
+            allContexts,
+            processed,
+            workspaceRoot,
+            resolver
+          );
+        }
+
+        const output = formatContexts(allContexts);
         await vscode.env.clipboard.writeText(output);
+
+        const fileCount = filesToProcess.length;
+        const contextCount = allContexts.length;
         vscode.window.showInformationMessage(
-          `Copied context for ${contexts.length} files`
+          `Copied context for ${contextCount} files (from ${fileCount} selected)`
         );
       } catch (error) {
         vscode.window.showErrorMessage(`Error: ${error}`);
