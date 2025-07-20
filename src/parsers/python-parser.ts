@@ -20,9 +20,7 @@ export class PythonParser extends BaseParser {
       }
 
       // Standard import: import module
-      const importMatch = line.match(
-        /^import\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)/
-      );
+      const importMatch = line.match(/^import\s+([^\s#]+)/);
       if (importMatch) {
         imports.push({
           module: importMatch[1],
@@ -33,9 +31,7 @@ export class PythonParser extends BaseParser {
       }
 
       // From import: from module import ...
-      const fromMatch = line.match(
-        /^from\s+(\.?[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*|\.[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s+import/
-      );
+      const fromMatch = line.match(/^from\s+([^\s#]+)\s+import/);
       if (fromMatch) {
         imports.push({
           module: fromMatch[1],
@@ -45,15 +41,15 @@ export class PythonParser extends BaseParser {
         continue;
       }
 
-      // Stop when we hit actual code (not imports/docstrings/comments)
+      // Stop at first non-import statement (basic version)
       if (
         line &&
         !line.startsWith("from ") &&
         !line.startsWith("import ") &&
-        !line.startsWith('"""') &&
-        !line.startsWith("'''") &&
+        !line.startsWith('"') &&
+        !line.startsWith("'") &&
         !line.startsWith("@") &&
-        !line.startsWith("# ")
+        !line.startsWith("if __name__")
       ) {
         break;
       }
