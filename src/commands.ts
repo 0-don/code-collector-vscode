@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { ContextCollector } from "./core";
 import { FileContext } from "./types";
-import { getFilesToProcess, getWorkspaceRoot } from "./utils/file-selection";
-import { formatContexts } from "./utils/format-utils";
+import { formatContexts, getFilesToProcess, getWorkspaceRoot } from "./utils";
 
 export class CommandHandler {
   private contextCollector = new ContextCollector();

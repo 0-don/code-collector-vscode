@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import { parserRegistry } from "./parsers";
 import { resolverRegistry } from "./resolvers";
 import { FileContext } from "./types";
-import { isTextFile } from "./utils/file-utils";
+import { isTextFile } from "./utils";
 
 export class ContextCollector {
   async collectAllFiles(workspaceRoot: string): Promise<FileContext[]> {
