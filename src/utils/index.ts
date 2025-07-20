@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as vscode from "vscode";
 import { parserRegistry } from "../parsers";
 import { FileContext } from "../types";
+import { supportedExtensions } from "../languages";
 
 export function isTextFile(filePath: string): boolean {
   try {
@@ -26,16 +27,6 @@ export function isTextFile(filePath: string): boolean {
 }
 
 export function isSupportedFile(filePath: string): boolean {
-  const supportedExtensions = [
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-    ".mjs",
-    ".cjs",
-    ".java",
-    ".kt",
-  ];
   return supportedExtensions.some((ext) => filePath.endsWith(ext));
 }
 
