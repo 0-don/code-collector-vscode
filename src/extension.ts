@@ -92,7 +92,12 @@ function isTextFile(filePath: string): boolean {
 
 async function collectAllFiles(workspaceRoot: string): Promise<FileContext[]> {
   const config = vscode.workspace.getConfiguration("codeCollector");
-  const ignorePatterns = config.get<string[]>("ignorePatterns", []);
+
+  const defaultIgnorePatterns =
+    config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
+  const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
+
+  const ignorePatterns = [...defaultIgnorePatterns, ...userIgnorePatterns];
 
   const contexts: FileContext[] = [];
   const files = await vscode.workspace.findFiles(
