@@ -64,7 +64,7 @@ export class ContextCollector {
     const resolver = resolverRegistry.getResolver(filePath);
 
     if (parser && resolver) {
-      const imports = parser.parseImports(content, filePath);
+      const imports = await parser.parseImports(content, filePath);
 
       for (const importInfo of imports) {
         const resolvedPath = resolver.resolve(
