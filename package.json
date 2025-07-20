@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -32,7 +32,7 @@
       "explorer/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt)$/",
           "group": "navigation@0"
         },
         {
@@ -43,7 +43,7 @@
       "editor/context": [
         {
           "command": "code-collector.gatherImports",
-          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt|py)$/",
+          "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts|java|kt)$/",
           "group": "navigation@0"
         },
         {
