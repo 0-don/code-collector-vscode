@@ -11,77 +11,125 @@ interface FileContext {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const disposable = vscode.commands.registerCommand(
+  const gatherImportsDisposable = vscode.commands.registerCommand(
     "code-collector.gatherImports",
-    async (clickedUri: vscode.Uri, selectedUris: vscode.Uri[]) => {
+    async (uri: vscode.Uri) => {
       try {
-        let filePaths: string[] = [];
-
-        // Check if we have multiple selected files
-        if (selectedUris && selectedUris.length > 1) {
-          // Multi-select case: use all selected files
-          filePaths = selectedUris
-            .filter((uri) => uri && isSupportedFile(uri.fsPath))
-            .map((uri) => uri.fsPath);
-        } else {
-          // Single file case: use clicked file or active editor
-          const filePath =
-            clickedUri?.fsPath ||
-            vscode.window.activeTextEditor?.document.fileName;
-          if (filePath && isSupportedFile(filePath)) {
-            filePaths = [filePath];
-          }
-        }
-
-        if (filePaths.length === 0) {
+        const filePath =
+          uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
+        if (!filePath || !isSupportedFile(filePath)) {
           vscode.window.showErrorMessage(
-            "Please select TypeScript or JavaScript files"
+            "Please select a TypeScript or JavaScript file"
           );
           return;
         }
 
-        // Process all selected files with shared processed set to avoid duplicates
-        const allContexts: FileContext[] = [];
-        const globalProcessed = new Set<string>();
+        const contexts = await gatherImportContexts(filePath);
+        const output = formatContexts(contexts);
 
-        for (const filePath of filePaths) {
-          const contexts = await gatherImportContexts(
-            filePath,
-            globalProcessed
-          );
-          allContexts.push(...contexts);
-        }
-
-        const output = formatContexts(allContexts);
         await vscode.env.clipboard.writeText(output);
-
-        const message =
-          filePaths.length > 1
-            ? `Copied context for ${allContexts.length} files from ${filePaths.length} selected files`
-            : `Copied context for ${allContexts.length} files`;
-
-        vscode.window.showInformationMessage(message);
+        vscode.window.showInformationMessage(
+          `Copied context for ${contexts.length} files`
+        );
       } catch (error) {
         vscode.window.showErrorMessage(`Error: ${error}`);
       }
     }
   );
 
-  context.subscriptions.push(disposable);
+  const collectAllDisposable = vscode.commands.registerCommand(
+    "code-collector.collectAll",
+    async () => {
+      try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+          vscode.window.showErrorMessage("No workspace folder open");
+          return;
+        }
+
+        const contexts = await collectAllFiles(workspaceFolder.uri.fsPath);
+        const output = formatContexts(contexts);
+
+        await vscode.env.clipboard.writeText(output);
+        vscode.window.showInformationMessage(
+          `Copied all code context for ${contexts.length} files`
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(`Error: ${error}`);
+      }
+    }
+  );
+
+  context.subscriptions.push(gatherImportsDisposable, collectAllDisposable);
+}
+
+function isTextFile(filePath: string): boolean {
+  try {
+    // Read first 1KB to detect binary content
+    const buffer = fs.readFileSync(filePath, { flag: "r" }).slice(0, 1024);
+
+    // Check for null bytes (strong indicator of binary content)
+    if (buffer.includes(0)) {
+      return false;
+    }
+
+    // Try to decode as UTF-8
+    try {
+      const text = buffer.toString("utf8");
+      // Check if the decoded text contains replacement characters
+      // which indicates invalid UTF-8 sequences
+      if (text.includes("\uFFFD")) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  } catch (error) {
+    return false;
+  }
+}
+
+async function collectAllFiles(workspaceRoot: string): Promise<FileContext[]> {
+  const config = vscode.workspace.getConfiguration("codeCollector");
+  const ignorePatterns = config.get<string[]>("ignorePatterns", []);
+
+  const contexts: FileContext[] = [];
+  const files = await vscode.workspace.findFiles(
+    "**/*",
+    `{${ignorePatterns.join(",")}}`
+  );
+
+  for (const file of files) {
+    const filePath = file.fsPath;
+
+    // Skip if not a text file
+    if (!isTextFile(filePath)) {
+      continue;
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
+      const relativePath = path.relative(workspaceRoot, filePath);
+      contexts.push({ path: filePath, content, relativePath });
+    } catch (error) {
+      console.log(`Failed to read file ${filePath}:`, error);
+    }
+  }
+
+  return contexts;
 }
 
 function isSupportedFile(filePath: string): boolean {
   return /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(filePath);
 }
 
-async function gatherImportContexts(
-  filePath: string,
-  globalProcessed?: Set<string>
-): Promise<FileContext[]> {
+async function gatherImportContexts(filePath: string): Promise<FileContext[]> {
   const contexts: FileContext[] = [];
-  const processed = globalProcessed || new Set<string>();
+  const processed = new Set<string>();
   const workspaceRoot =
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+
   const resolver = createResolver(workspaceRoot);
 
   await processFile(filePath, contexts, processed, workspaceRoot, resolver);
@@ -97,7 +145,6 @@ function createResolver(workspaceRoot: string) {
     fileSystem: fs,
   };
 
-  // Add tsconfig path mappings if available
   if (tsConfigPath) {
     try {
       const tsConfig = JSON.parse(fs.readFileSync(tsConfigPath, "utf8"));
@@ -199,7 +246,6 @@ function getImportsFromAST(
   const imports: string[] = [];
 
   function visit(node: ts.Node) {
-    // Handle ES6 imports
     if (ts.isImportDeclaration(node) && node.moduleSpecifier) {
       const moduleSpecifier = (node.moduleSpecifier as ts.StringLiteral).text;
       const resolved = resolveImport(moduleSpecifier, baseDir, resolver);
@@ -208,7 +254,6 @@ function getImportsFromAST(
       }
     }
 
-    // Handle dynamic imports
     if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword
@@ -222,7 +267,6 @@ function getImportsFromAST(
       }
     }
 
-    // Handle CommonJS require()
     if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
@@ -270,7 +314,6 @@ function resolveImport(
 ): string | null {
   try {
     const resolved = resolver(baseDir, importPath);
-    // Only include local files (not from node_modules)
     return resolved && !resolved.includes("node_modules") ? resolved : null;
   } catch {
     return null;
@@ -284,7 +327,7 @@ function formatContexts(contexts: FileContext[]): string {
   for (const { relativePath, content } of contexts) {
     const lines = content.split("\n");
     const endLine = currentLine + lines.length - 1;
-    output += `\n// ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
+    output += `\n### ${relativePath} (L${currentLine}-L${endLine})\n${content}\n`;
     currentLine = endLine + 1;
   }
 

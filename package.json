@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.8",
+  "version": "0.0.7",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -22,6 +22,10 @@
       {
         "command": "code-collector.gatherImports",
         "title": "Code Collect"
+      },
+      {
+        "command": "code-collector.collectAll",
+        "title": "Code Collect All"
       }
     ],
     "menus": {
@@ -30,6 +34,10 @@
           "command": "code-collector.gatherImports",
           "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
           "group": "navigation@0"
+        },
+        {
+          "command": "code-collector.collectAll",
+          "group": "navigation@1"
         }
       ],
       "editor/context": [
@@ -37,6 +45,10 @@
           "command": "code-collector.gatherImports",
           "when": "resourceExtname =~ /\\.(ts|tsx|js|jsx|java|kt|py)$/",
           "group": "navigation@0"
+        },
+        {
+          "command": "code-collector.collectAll",
+          "group": "navigation@1"
         }
       ]
     },
@@ -47,7 +59,34 @@
         "mac": "cmd+shift+g",
         "when": "editorTextFocus"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Code Collector",
+      "properties": {
+        "codeCollector.ignorePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules/**",
+            "target/**",
+            ".git/**",
+            "dist/**",
+            "build/**",
+            ".next/**",
+            "out/**",
+            "*.log",
+            "*.lock",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "bun.lock*",
+            "yarn-error.log"
+          ],
+          "description": "Glob patterns for files to ignore when collecting all code"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
