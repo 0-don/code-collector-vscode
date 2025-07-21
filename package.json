@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -73,6 +73,7 @@
             ".next/**",
             "dist/**",
             "build/**",
+            ".angular/**",
             "out/**",
             "*.log",
             "*.lock",
