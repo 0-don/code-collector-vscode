@@ -1,8 +1,8 @@
 import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
-import { parserRegistry } from "../parsers";
-import { FileContext } from "../types";
 import { supportedExtensions } from "../languages";
+import { FileContext } from "../types";
 
 export function isTextFile(filePath: string): boolean {
   try {
@@ -34,21 +34,44 @@ export function getFilesToProcess(
   uri: vscode.Uri,
   selectedFiles?: vscode.Uri[]
 ): string[] {
-  const supportedExtensions = parserRegistry.getSupportedExtensions();
-
   if (selectedFiles?.length) {
     return selectedFiles
       .map((f) => f.fsPath)
-      .filter((path) => supportedExtensions.some((ext) => path.endsWith(ext)));
+      .flatMap((path) => expandPathToFiles(path));
   }
 
-  if (uri?.fsPath && isSupportedFile(uri.fsPath)) {
-    return [uri.fsPath];
+  if (uri?.fsPath) {
+    return expandPathToFiles(uri.fsPath);
   }
 
   const activeFile = vscode.window.activeTextEditor?.document.fileName;
-  if (activeFile && isSupportedFile(activeFile)) {
+  if (activeFile) {
     return [activeFile];
+  }
+
+  return [];
+}
+
+function expandPathToFiles(fsPath: string): string[] {
+  const stat = fs.statSync(fsPath);
+
+  if (stat.isFile()) {
+    return isTextFile(fsPath) ? [fsPath] : [];
+  }
+
+  if (stat.isDirectory()) {
+    const files: string[] = [];
+    const entries = fs.readdirSync(fsPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(fsPath, entry.name);
+      if (entry.isFile() && isTextFile(fullPath)) {
+        files.push(fullPath);
+      } else if (entry.isDirectory()) {
+        files.push(...expandPathToFiles(fullPath));
+      }
+    }
+    return files;
   }
 
   return [];

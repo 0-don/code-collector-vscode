@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ContextCollector } from "./core";
 import { FileContext } from "./types";
 import { formatContexts, getFilesToProcess, getWorkspaceRoot } from "./utils";
+import { parserRegistry } from "./parsers";
 
 export class CommandHandler {
   private contextCollector = new ContextCollector();
@@ -14,7 +15,7 @@ export class CommandHandler {
       const filesToProcess = getFilesToProcess(uri, selectedFiles);
 
       if (filesToProcess.length === 0) {
-        vscode.window.showErrorMessage("Please select supported files");
+        vscode.window.showErrorMessage("No text files found to process");
         return;
       }
 
@@ -39,8 +40,14 @@ export class CommandHandler {
 
       await vscode.env.clipboard.writeText(output);
 
+      const programmingFiles = allContexts.filter(
+        (ctx) => parserRegistry.getParser(ctx.path) !== null
+      ).length;
+
+      const textFiles = allContexts.length - programmingFiles;
+
       vscode.window.showInformationMessage(
-        `Copied context for ${allContexts.length} files (${totalLines} lines) from ${filesToProcess.length} selected`
+        `Copied context for ${allContexts.length} files (${totalLines} lines) - ${programmingFiles} with imports, ${textFiles} text files`
       );
     } catch (error) {
       vscode.window.showErrorMessage(`Error: ${error}`);

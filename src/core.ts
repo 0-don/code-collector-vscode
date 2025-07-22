@@ -55,33 +55,41 @@ export class ContextCollector {
     }
 
     processed.add(normalizedPath);
-    const content = fs.readFileSync(normalizedPath, "utf8");
-    const relativePath = path.relative(workspaceRoot, normalizedPath);
 
-    contexts.push({ path: normalizedPath, content, relativePath });
+    try {
+      const content = fs.readFileSync(normalizedPath, "utf8");
+      const relativePath = path.relative(workspaceRoot, normalizedPath);
 
-    const parser = parserRegistry.getParser(filePath);
-    const resolver = resolverRegistry.getResolver(filePath);
+      contexts.push({ path: normalizedPath, content, relativePath });
 
-    if (parser && resolver) {
-      const imports = await parser.parseImports(content, filePath);
+      // Only process imports for supported programming languages
+      const parser = parserRegistry.getParser(filePath);
+      const resolver = resolverRegistry.getResolver(filePath);
 
-      for (const importInfo of imports) {
-        const resolvedPath = await resolver.resolve(
-          importInfo.module,
-          path.dirname(normalizedPath),
-          workspaceRoot
-        );
+      if (parser && resolver) {
+        const imports = await parser.parseImports(content, filePath);
 
-        if (resolvedPath) {
-          await this.processFile(
-            resolvedPath,
-            contexts,
-            processed,
+        for (const importInfo of imports) {
+          const resolvedPath = await resolver.resolve(
+            importInfo.module,
+            path.dirname(normalizedPath),
             workspaceRoot
           );
+
+          if (resolvedPath) {
+            await this.processFile(
+              resolvedPath,
+              contexts,
+              processed,
+              workspaceRoot
+            );
+          }
         }
       }
+      // For non-programming files (text files without parsers),
+      // just include the content without import processing
+    } catch (error) {
+      console.log(`Failed to read file ${normalizedPath}:`, error);
     }
   }
 }
