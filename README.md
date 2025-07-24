@@ -1,37 +1,28 @@
-# Code Collector
+# Code Collector - VS Code Extension
 
-A VS Code extension that gathers code context for AI assistance by analyzing imports and collecting related files.
+**Gather your codebase context for AI assistants by following import dependencies.**
 
 ## Features
 
-- **Smart Import Analysis**: Follows import chains to collect all related local files
-- **Multi-Language Support**: TypeScript, JavaScript, Java, Kotlin, Python
-- **Path Mapping Support**: Handles tsconfig.json aliases and path mappings
-- **AI-Optimized Output**: Line numbers and file headers for easy AI consumption
-- **Collect All**: Option to collect entire workspace with configurable ignore patterns
+- **Smart Import Following**: Automatically collects files based on import statements
+- **Multi-Language**: TypeScript, JavaScript, Java, Kotlin, Python
+- **Two Modes**: 
+  - Import-based collection (follows dependencies)
+  - Collect entire workspace (with filtering)
+- **AI-Ready Output**: Formatted with file paths and line numbers
+- **One-Click Copy**: Results automatically copied to clipboard
 
 ## Usage
 
-### Code Collect (Import-based)
-
 - **Keyboard**: `Ctrl+Shift+G` (`Cmd+Shift+G` on Mac)
-- **Context Menu**: Right-click file(s) → "Code Collect"
-- **Command Palette**: `Ctrl+Shift+P` → "Code Collect"
+- **Context Menu**: Right-click files/folders → "Code Collect"
 
-### Code Collect All
-
-- **Context Menu**: Right-click in Explorer → "Code Collect All"
-- **Command Palette**: `Ctrl+Shift+P` → "Code Collect All"
-
-## Configuration
-
-```json
-{
-  "codeCollector.ignorePatterns": [
-    "node_modules/**",
-    "dist/**",
-    "build/**",
-    "*.log"
-  ]
-}
+## Output Format
+```plaintext
+// src/utils/helper.ts (L1-L25)
+[your code here]
+// src/main.ts (L26-L50)
+[your code here]
 ```
+
+Perfect for sharing code context with ChatGPT, Claude, and other AI assistants.
