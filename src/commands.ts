@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { ContextCollector } from "./core";
+import { parserRegistry } from "./parsers";
 import { FileContext } from "./types";
 import { formatContexts, getFilesToProcess, getWorkspaceRoot } from "./utils";
-import { parserRegistry } from "./parsers";
 
 export class CommandHandler {
   private contextCollector = new ContextCollector();
@@ -12,7 +12,7 @@ export class CommandHandler {
     selectedFiles?: vscode.Uri[]
   ): Promise<void> {
     try {
-      const filesToProcess = getFilesToProcess(uri, selectedFiles);
+      const filesToProcess = await getFilesToProcess(uri, selectedFiles);
 
       if (filesToProcess.length === 0) {
         vscode.window.showErrorMessage("No text files found to process");

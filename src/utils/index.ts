@@ -7,20 +7,12 @@ import { FileContext } from "../types";
 export function isTextFile(filePath: string): boolean {
   try {
     const buffer = fs.readFileSync(filePath, { flag: "r" }).slice(0, 1024);
-
     if (buffer.includes(0)) {
       return false;
     }
 
-    try {
-      const text = buffer.toString("utf8");
-      if (text.includes("\uFFFD")) {
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    const text = buffer.toString("utf8");
+    return !text.includes("\uFFFD");
   } catch {
     return false;
   }
@@ -30,51 +22,88 @@ export function isSupportedFile(filePath: string): boolean {
   return supportedExtensions.some((ext) => filePath.endsWith(ext));
 }
 
-export function getFilesToProcess(
+export async function getFilesToProcess(
   uri: vscode.Uri,
   selectedFiles?: vscode.Uri[]
-): string[] {
-  if (selectedFiles?.length) {
-    return selectedFiles
-      .map((f) => f.fsPath)
-      .flatMap((path) => expandPathToFiles(path));
-  }
+): Promise<string[]> {
+  const config = vscode.workspace.getConfiguration("codeCollector");
+  const defaultIgnorePatterns =
+    config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
+  const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
+  const excludePattern = `{${[
+    ...defaultIgnorePatterns,
+    ...userIgnorePatterns,
+  ].join(",")}}`;
 
-  if (uri?.fsPath) {
-    return expandPathToFiles(uri.fsPath);
-  }
+  const filesToProcess = new Set<string>();
+  const urisToProcess = selectedFiles?.length
+    ? selectedFiles
+    : uri
+    ? [uri]
+    : [];
+  const workspaceRoot = getWorkspaceRoot();
 
-  const activeFile = vscode.window.activeTextEditor?.document.fileName;
-  if (activeFile) {
-    return [activeFile];
-  }
+  for (const u of urisToProcess) {
+    const fsPath = u.fsPath;
+    if (!fs.existsSync(fsPath)) {
+      continue;
+    }
 
-  return [];
-}
-
-function expandPathToFiles(fsPath: string): string[] {
-  const stat = fs.statSync(fsPath);
-
-  if (stat.isFile()) {
-    return isTextFile(fsPath) ? [fsPath] : [];
-  }
-
-  if (stat.isDirectory()) {
-    const files: string[] = [];
-    const entries = fs.readdirSync(fsPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(fsPath, entry.name);
-      if (entry.isFile() && isTextFile(fullPath)) {
-        files.push(fullPath);
-      } else if (entry.isDirectory()) {
-        files.push(...expandPathToFiles(fullPath));
+    const stat = fs.statSync(fsPath);
+    if (stat.isFile()) {
+      await processFile(fsPath, workspaceRoot, excludePattern, filesToProcess);
+    } else if (stat.isDirectory()) {
+      const pattern = new vscode.RelativePattern(u, "**/*");
+      const foundFiles = await vscode.workspace.findFiles(
+        pattern,
+        excludePattern
+      );
+      for (const file of foundFiles) {
+        if (isTextFile(file.fsPath)) {
+          filesToProcess.add(file.fsPath);
+        }
       }
     }
-    return files;
   }
 
-  return [];
+  if (filesToProcess.size === 0) {
+    const activeEditorFile = vscode.window.activeTextEditor?.document.uri;
+    if (activeEditorFile) {
+      await processFile(
+        activeEditorFile.fsPath,
+        workspaceRoot,
+        excludePattern,
+        filesToProcess
+      );
+    }
+  }
+
+  return Array.from(filesToProcess);
+}
+
+async function processFile(
+  fsPath: string,
+  workspaceRoot: string,
+  excludePattern: string,
+  filesToProcess: Set<string>
+) {
+  if (!workspaceRoot) {
+    if (isTextFile(fsPath)) {
+      filesToProcess.add(fsPath);
+    }
+    return;
+  }
+
+  const relativePath = path.relative(workspaceRoot, fsPath);
+  const foundFiles = await vscode.workspace.findFiles(
+    relativePath,
+    excludePattern,
+    1
+  );
+
+  if (foundFiles.length > 0 && isTextFile(foundFiles[0].fsPath)) {
+    filesToProcess.add(foundFiles[0].fsPath);
+  }
 }
 
 export function getWorkspaceRoot(): string {
