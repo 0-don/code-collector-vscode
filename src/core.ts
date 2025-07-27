@@ -1,19 +1,23 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { OutputManager } from "./output";
 import { parserRegistry } from "./parsers";
 import { resolverRegistry } from "./resolvers";
 import { FileContext } from "./types";
 import { isTextFile } from "./utils";
 
 export class ContextCollector {
-  async collectAllFiles(workspaceRoot: string): Promise<FileContext[]> {
-    const config = vscode.workspace.getConfiguration("codeCollector");
+  private output = OutputManager.getInstance();
 
+  async collectAllFiles(
+    workspaceRoot: string,
+    progressCallback?: (current: number, total: number) => boolean
+  ): Promise<FileContext[]> {
+    const config = vscode.workspace.getConfiguration("codeCollector");
     const defaultIgnorePatterns =
       config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
     const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
-
     const ignorePatterns = [...defaultIgnorePatterns, ...userIgnorePatterns];
 
     const contexts: FileContext[] = [];
@@ -22,10 +26,17 @@ export class ContextCollector {
       `{${ignorePatterns.join(",")}}`
     );
 
-    for (const file of files) {
+    this.output.log(`Found ${files.length} files to scan`);
+
+    for (let i = 0; i < files.length; i++) {
+      if (progressCallback && !progressCallback(i + 1, files.length)) {
+        this.output.log("Collection cancelled");
+        break;
+      }
+
+      const file = files[i];
       const filePath = file.fsPath;
 
-      // Skip if not a text file
       if (!isTextFile(filePath)) {
         continue;
       }
@@ -35,10 +46,11 @@ export class ContextCollector {
         const relativePath = path.relative(workspaceRoot, filePath);
         contexts.push({ path: filePath, content, relativePath });
       } catch (error) {
-        console.log(`Failed to read file ${filePath}:`, error);
+        this.output.error(`Failed to read: ${filePath}`, error);
       }
     }
 
+    this.output.log(`Collected ${contexts.length} files`);
     return contexts;
   }
 
@@ -50,7 +62,11 @@ export class ContextCollector {
   ): Promise<void> {
     const normalizedPath = path.resolve(filePath);
 
-    if (processed.has(normalizedPath) || !fs.existsSync(normalizedPath)) {
+    if (processed.has(normalizedPath)) {
+      return;
+    }
+    if (!fs.existsSync(normalizedPath)) {
+      this.output.warn(`File not found: ${normalizedPath}`);
       return;
     }
 
@@ -59,15 +75,17 @@ export class ContextCollector {
     try {
       const content = fs.readFileSync(normalizedPath, "utf8");
       const relativePath = path.relative(workspaceRoot, normalizedPath);
-
       contexts.push({ path: normalizedPath, content, relativePath });
 
-      // Only process imports for supported programming languages
       const parser = parserRegistry.getParser(filePath);
       const resolver = resolverRegistry.getResolver(filePath);
 
       if (parser && resolver) {
         const imports = await parser.parseImports(content, filePath);
+
+        if (imports.length > 0) {
+          this.output.log(`${relativePath}: ${imports.length} imports`);
+        }
 
         for (const importInfo of imports) {
           const resolvedPath = await resolver.resolve(
@@ -86,10 +104,8 @@ export class ContextCollector {
           }
         }
       }
-      // For non-programming files (text files without parsers),
-      // just include the content without import processing
     } catch (error) {
-      console.log(`Failed to read file ${normalizedPath}:`, error);
+      this.output.error(`Failed to process: ${normalizedPath}`, error);
     }
   }
 }
