@@ -94,7 +94,7 @@ export class ContextCollector {
             workspaceRoot
           );
 
-          if (resolvedPath) {
+          if (resolvedPath && parserRegistry.getParser(resolvedPath)) {
             await this.processFile(
               resolvedPath,
               contexts,
