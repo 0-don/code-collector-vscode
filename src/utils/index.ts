@@ -51,7 +51,10 @@ export async function getFilesToProcess(
 
     const stat = fs.statSync(fsPath);
     if (stat.isFile()) {
-      await processFile(fsPath, workspaceRoot, excludePattern, filesToProcess);
+      // Direct file check - bypass glob patterns for individual files
+      if (isTextFile(fsPath)) {
+        filesToProcess.add(fsPath);
+      }
     } else if (stat.isDirectory()) {
       const pattern = new vscode.RelativePattern(u, "**/*");
       const foundFiles = await vscode.workspace.findFiles(
@@ -66,15 +69,11 @@ export async function getFilesToProcess(
     }
   }
 
+  // Fallback to active editor if no files found
   if (filesToProcess.size === 0) {
     const activeEditorFile = vscode.window.activeTextEditor?.document.uri;
-    if (activeEditorFile) {
-      await processFile(
-        activeEditorFile.fsPath,
-        workspaceRoot,
-        excludePattern,
-        filesToProcess
-      );
+    if (activeEditorFile && isTextFile(activeEditorFile.fsPath)) {
+      filesToProcess.add(activeEditorFile.fsPath);
     }
   }
 

@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
