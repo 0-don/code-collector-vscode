@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { getIgnorePatterns } from "./config";
 import { OutputManager } from "./output";
 import { parserRegistry } from "./parsers";
 import { resolverRegistry } from "./resolvers";
@@ -15,11 +16,7 @@ export class ContextCollector {
     workspaceRoot: string,
     progressCallback?: (current: number, total: number) => boolean
   ): Promise<FileContext[]> {
-    const config = vscode.workspace.getConfiguration("codeCollector");
-    const defaultIgnorePatterns =
-      config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
-    const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
-    const ignorePatterns = [...defaultIgnorePatterns, ...userIgnorePatterns];
+    const ignorePatterns = getIgnorePatterns();
 
     const files = await vscode.workspace.findFiles(
       "**/*",
@@ -125,13 +122,8 @@ export class ContextCollector {
     );
 
     const resolver = resolverRegistry.getResolver("dummy.py") as PythonResolver;
-
-    const config = vscode.workspace.getConfiguration("codeCollector");
-    const defaultIgnorePatterns =
-      config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
-    const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
-    const ignorePatterns = [...defaultIgnorePatterns, ...userIgnorePatterns];
-
+    const ignorePatterns = getIgnorePatterns();
+    
     try {
       const allPythonFiles = await resolver.resolveAllImports(
         Array.from(pythonFiles),

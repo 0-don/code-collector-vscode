@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { supportedExtensions } from "../languages";
 import { FileContext } from "../types";
+import { getIgnorePatternsGlob } from "../config";
 
 export function isTextFile(filePath: string): boolean {
   try {
@@ -26,14 +27,7 @@ export async function getFilesToProcess(
   uri: vscode.Uri,
   selectedFiles?: vscode.Uri[]
 ): Promise<string[]> {
-  const config = vscode.workspace.getConfiguration("codeCollector");
-  const defaultIgnorePatterns =
-    config.inspect<string[]>("ignorePatterns")?.defaultValue || [];
-  const userIgnorePatterns = config.get<string[]>("ignorePatterns", []);
-  const excludePattern = `{${[
-    ...defaultIgnorePatterns,
-    ...userIgnorePatterns,
-  ].join(",")}}`;
+  const excludePattern = getIgnorePatternsGlob();
 
   const filesToProcess = new Set<string>();
   const urisToProcess = selectedFiles?.length
@@ -41,8 +35,6 @@ export async function getFilesToProcess(
     : uri
     ? [uri]
     : [];
-  const workspaceRoot = getWorkspaceRoot();
-
   for (const u of urisToProcess) {
     const fsPath = u.fsPath;
     if (!fs.existsSync(fsPath)) {
