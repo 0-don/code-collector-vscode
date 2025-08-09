@@ -13,24 +13,18 @@ export class CommandHandler {
     uri: vscode.Uri,
     selectedFiles?: vscode.Uri[]
   ): Promise<void> {
-    const progressOptions = {
-      location: vscode.ProgressLocation.Notification,
-      title: "Code Collector",
-      cancellable: true,
-    };
-
     return vscode.window.withProgress(
-      progressOptions,
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Collector: Processing files...",
+        cancellable: true,
+      },
       async (progress, token) => {
         try {
           this.output.clear();
           this.output.log("Starting import-based collection...");
 
-          progress.report({ message: "Finding files..." });
-
           const filesToProcess = await getFilesToProcess(uri, selectedFiles);
-          this.output.log(`Processing ${filesToProcess.length} files`);
-
           if (filesToProcess.length === 0) {
             const message = "No text files found to process";
             this.output.error(message);
@@ -39,58 +33,63 @@ export class CommandHandler {
           }
 
           if (token.isCancellationRequested) {
-            this.output.log("Cancelled");
             return;
           }
 
           const allContexts: FileContext[] = [];
           const processed = new Set<string>();
+          const pythonFiles = new Set<string>();
           const workspaceRoot = getWorkspaceRoot();
 
-          for (let i = 0; i < filesToProcess.length; i++) {
+          // Process non-Python files
+          for (const filePath of filesToProcess.filter(
+            (f) => !f.endsWith(".py")
+          )) {
             if (token.isCancellationRequested) {
-              this.output.log("Cancelled");
               return;
             }
-
-            const filePath = filesToProcess[i];
-            const fileName = filePath.split("/").pop() || filePath;
-
-            progress.report({
-              message: `Processing ${fileName}...`,
-              increment: 100 / filesToProcess.length,
-            });
-
             await this.contextCollector.processFile(
               filePath,
               allContexts,
               processed,
-              workspaceRoot
+              workspaceRoot,
+              pythonFiles
             );
           }
 
+          // Add initial Python files and process them all at once
+          filesToProcess
+            .filter((f) => f.endsWith(".py"))
+            .forEach((f) => pythonFiles.add(f));
           if (token.isCancellationRequested) {
-            this.output.log("Cancelled");
             return;
           }
 
-          progress.report({ message: "Formatting output..." });
+          await this.contextCollector.processPythonFiles(
+            pythonFiles,
+            allContexts,
+            processed,
+            workspaceRoot
+          );
+          if (token.isCancellationRequested) {
+            return;
+          }
 
           const output = formatContexts(allContexts);
           const totalLines = allContexts.reduce(
             (sum, ctx) => sum + ctx.content.split("\n").length,
             0
           );
-
           await vscode.env.clipboard.writeText(output);
 
           const programmingFiles = allContexts.filter(
             (ctx) => parserRegistry.getParser(ctx.path) !== null
           ).length;
-
-          const textFiles = allContexts.length - programmingFiles;
-
-          const successMessage = `Copied ${allContexts.length} files (${totalLines} lines) - ${programmingFiles} with imports, ${textFiles} text`;
+          const successMessage = `Copied ${
+            allContexts.length
+          } files (${totalLines} lines) - ${programmingFiles} with imports, ${
+            allContexts.length - programmingFiles
+          } text`;
 
           this.output.log(`✓ ${successMessage}`);
           vscode.window.showInformationMessage(successMessage);
@@ -105,14 +104,12 @@ export class CommandHandler {
   }
 
   async handleCollectAll(): Promise<void> {
-    const progressOptions = {
-      location: vscode.ProgressLocation.Notification,
-      title: "Code Collector",
-      cancellable: true,
-    };
-
     return vscode.window.withProgress(
-      progressOptions,
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Collector: Collecting all files...",
+        cancellable: true,
+      },
       async (progress, token) => {
         try {
           this.output.clear();
@@ -126,45 +123,27 @@ export class CommandHandler {
             return;
           }
 
-          progress.report({ message: "Scanning files..." });
-
           if (token.isCancellationRequested) {
-            this.output.log("Cancelled");
             return;
           }
 
           const contexts = await this.contextCollector.collectAllFiles(
             workspaceFolder.uri.fsPath,
-            (current, total) => {
-              if (token.isCancellationRequested) {
-                return false;
-              }
-
-              progress.report({
-                message: `Processing files... (${current}/${total})`,
-                increment: 100 / total,
-              });
-              return true;
-            }
+            () => !token.isCancellationRequested
           );
 
           if (token.isCancellationRequested) {
-            this.output.log("Cancelled");
             return;
           }
-
-          progress.report({ message: "Formatting..." });
 
           const totalLines = contexts.reduce(
             (sum, ctx) => sum + ctx.content.split("\n").length,
             0
           );
-
           const output = formatContexts(contexts);
           await vscode.env.clipboard.writeText(output);
 
           const successMessage = `Copied ${contexts.length} files (${totalLines} lines)`;
-
           this.output.log(`✓ ${successMessage}`);
           vscode.window.showInformationMessage(successMessage);
         } catch (error) {
