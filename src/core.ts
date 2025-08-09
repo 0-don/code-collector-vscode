@@ -125,10 +125,6 @@ export class ContextCollector {
     );
 
     const resolver = resolverRegistry.getResolver("dummy.py") as PythonResolver;
-    if (!resolver) {
-      this.output.error("Python resolver not found");
-      return;
-    }
 
     const config = vscode.workspace.getConfiguration("codeCollector");
     const defaultIgnorePatterns =
