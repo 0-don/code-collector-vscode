@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.39",
+  "version": "0.0.40",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -88,6 +88,7 @@
             ".output/**",
             ".svelte-kit/**",
             ".vite/**",
+            ".astro/**",
             ".turbo/**",
             ".vercel/**",
             ".netlify/**",
