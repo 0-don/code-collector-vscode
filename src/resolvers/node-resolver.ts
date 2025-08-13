@@ -27,7 +27,7 @@ type PathMappingCache = {
 export class NodeResolver extends BaseResolver {
   config: ResolverConfig = {
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
-    configFiles: [], // No longer needed since we find them dynamically
+    configFiles: [],
   };
 
   private pathMappingCache = new Map<string, PathMappingCache>();
@@ -153,9 +153,18 @@ export class NodeResolver extends BaseResolver {
   ): string | null {
     const { baseUrl, paths } = pathMapping;
 
+    // Sort patterns by specificity (more specific patterns first)
+    const sortedPatterns = Object.keys(paths).sort((a, b) => {
+      const aSpecificity = this.getPatternSpecificity(a);
+      const bSpecificity = this.getPatternSpecificity(b);
+      return bSpecificity - aSpecificity;
+    });
+
     // Try each path pattern
-    for (const [pattern, mappings] of Object.entries(paths)) {
+    for (const pattern of sortedPatterns) {
       if (this.matchesPattern(importPath, pattern)) {
+        const mappings = paths[pattern];
+
         for (const mapping of mappings) {
           const resolved = this.resolvePattern(
             importPath,
@@ -178,12 +187,67 @@ export class NodeResolver extends BaseResolver {
     return null;
   }
 
-  private matchesPattern(importPath: string, pattern: string): boolean {
-    if (pattern.endsWith("/*")) {
-      const prefix = pattern.slice(0, -2);
-      return importPath.startsWith(prefix + "/") || importPath === prefix;
+  private getPatternSpecificity(pattern: string): number {
+    // More specific patterns get higher scores
+    let score = 0;
+
+    // Exact matches are most specific
+    if (!pattern.includes("*")) {
+      score += 1000;
     }
-    return importPath === pattern;
+
+    // Patterns with more path segments are more specific
+    score += pattern.split("/").length * 10;
+
+    // Patterns with wildcards at the end are more specific than in the middle
+    if (pattern.endsWith("*") || pattern.endsWith("/*")) {
+      score += 5;
+    }
+
+    // Longer patterns are generally more specific
+    score += pattern.length;
+
+    return score;
+  }
+
+  private matchesPattern(importPath: string, pattern: string): boolean {
+    // Handle exact matches
+    if (pattern === importPath) {
+      return true;
+    }
+
+    // Handle patterns without wildcards (prefix matching)
+    if (!pattern.includes("*")) {
+      return importPath.startsWith(pattern);
+    }
+
+    // Handle wildcard patterns
+    if (pattern.includes("*")) {
+      const regex = this.patternToRegex(pattern);
+      return regex.test(importPath);
+    }
+
+    return false;
+  }
+
+  private patternToRegex(pattern: string): RegExp {
+    // Escape special regex characters except *
+    let escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+
+    // Handle different wildcard scenarios
+    if (pattern.endsWith("/*")) {
+      // Common case: "@/*" should match "@/anything" and "@/path/to/file"
+      const prefix = pattern.slice(0, -2);
+      escaped = escaped.slice(0, -3); // Remove the escaped /*
+      return new RegExp(`^${escaped}\/.*$`);
+    } else if (pattern.includes("*")) {
+      // General wildcard handling
+      // * matches any sequence of characters except /
+      escaped = escaped.replace(/\\\*/g, "([^/]*)");
+      return new RegExp(`^${escaped}$`);
+    }
+
+    return new RegExp(`^${escaped}$`);
   }
 
   private resolvePattern(
@@ -192,13 +256,94 @@ export class NodeResolver extends BaseResolver {
     mapping: string,
     baseUrl: string
   ): string {
+    // Handle exact matches or patterns without wildcards
+    if (!pattern.includes("*")) {
+      if (!mapping.includes("*")) {
+        // Direct substitution
+        const suffix = importPath.slice(pattern.length);
+        return path.resolve(baseUrl, mapping + suffix);
+      } else {
+        // Pattern has no wildcard but mapping does - replace first *
+        return path.resolve(
+          baseUrl,
+          mapping.replace("*", importPath.slice(pattern.length))
+        );
+      }
+    }
+
+    // Handle wildcard patterns
+    if (pattern.includes("*") && mapping.includes("*")) {
+      return this.resolveWildcardPattern(importPath, pattern, mapping, baseUrl);
+    }
+
+    // Fallback: simple substitution
+    return path.resolve(baseUrl, mapping);
+  }
+
+  private resolveWildcardPattern(
+    importPath: string,
+    pattern: string,
+    mapping: string,
+    baseUrl: string
+  ): string {
+    // Handle the most common case: "prefix/*" -> "mappingPrefix/*"
     if (pattern.endsWith("/*") && mapping.endsWith("/*")) {
       const patternPrefix = pattern.slice(0, -2);
       const mappingPrefix = mapping.slice(0, -2);
-      const suffix = importPath.slice(patternPrefix.length);
-      return path.resolve(baseUrl, mappingPrefix + suffix);
+
+      if (
+        importPath.startsWith(patternPrefix + "/") ||
+        importPath === patternPrefix
+      ) {
+        const suffix = importPath.slice(patternPrefix.length);
+        return path.resolve(baseUrl, mappingPrefix + suffix);
+      }
     }
-    return path.resolve(baseUrl, mapping);
+
+    // Handle multiple wildcards (more complex case)
+    const patternParts = pattern.split("*");
+    const mappingParts = mapping.split("*");
+
+    if (patternParts.length !== mappingParts.length) {
+      // Fallback for mismatched wildcards - use simple replacement
+      return path.resolve(baseUrl, mapping.replace(/\*/g, ""));
+    }
+
+    let result = mappingParts[0];
+    let remaining = importPath;
+
+    // Process each wildcard segment
+    for (let i = 0; i < patternParts.length - 1; i++) {
+      const prefix = patternParts[i];
+      const suffix = patternParts[i + 1];
+
+      // Skip the prefix part
+      if (remaining.startsWith(prefix)) {
+        remaining = remaining.slice(prefix.length);
+      }
+
+      // Find where the next pattern part starts
+      let captured: string;
+      if (suffix === "") {
+        // Last wildcard - capture everything remaining
+        captured = remaining;
+        remaining = "";
+      } else {
+        const nextIndex = remaining.indexOf(suffix);
+        if (nextIndex === -1) {
+          // Pattern doesn't match - capture everything
+          captured = remaining;
+          remaining = "";
+        } else {
+          captured = remaining.slice(0, nextIndex);
+          remaining = remaining.slice(nextIndex);
+        }
+      }
+
+      result += captured + mappingParts[i + 1];
+    }
+
+    return path.resolve(baseUrl, result);
   }
 
   private resolveRelative(importPath: string, baseDir: string): string | null {
@@ -208,23 +353,25 @@ export class NodeResolver extends BaseResolver {
 
   private findFileWithExtension(resolved: string): string | null {
     // Check if file exists as-is
-    if (fs.existsSync(resolved)) {
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
       return resolved;
     }
 
     // Try with extensions
     for (const ext of this.config.extensions) {
       const withExt = resolved + ext;
-      if (fs.existsSync(withExt)) {
+      if (fs.existsSync(withExt) && fs.statSync(withExt).isFile()) {
         return withExt;
       }
     }
 
-    // Try index files
-    for (const ext of this.config.extensions) {
-      const indexFile = path.join(resolved, `index${ext}`);
-      if (fs.existsSync(indexFile)) {
-        return indexFile;
+    // Try index files in directory
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+      for (const ext of this.config.extensions) {
+        const indexFile = path.join(resolved, `index${ext}`);
+        if (fs.existsSync(indexFile) && fs.statSync(indexFile).isFile()) {
+          return indexFile;
+        }
       }
     }
 
