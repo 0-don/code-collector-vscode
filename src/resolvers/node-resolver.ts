@@ -1,12 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
+import { javascriptExtensions } from "../languages";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
 
 export class NodeResolver extends BaseResolver {
   config: ResolverConfig = {
-    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    extensions: [...javascriptExtensions],
     configFiles: [],
   };
 
@@ -55,7 +56,7 @@ export class NodeResolver extends BaseResolver {
       ts.findConfigFile(workspaceRoot, ts.sys.fileExists, "jsconfig.json");
 
     let compilerOptions: ts.CompilerOptions = {
-      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
       allowJs: true,
     };
 
