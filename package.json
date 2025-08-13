@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -133,6 +133,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/micromatch": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "1.80.0",
@@ -147,7 +148,9 @@
   },
   "dependencies": {
     "enhanced-resolve": "^5.18.2",
+    "fast-glob": "^3.3.3",
     "fast-xml-parser": "^5.2.5",
-    "gradle-to-js": "^2.0.1"
+    "gradle-to-js": "^2.0.1",
+    "micromatch": "^4.0.8"
   }
 }

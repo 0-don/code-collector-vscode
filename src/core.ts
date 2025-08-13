@@ -1,6 +1,6 @@
 import * as fs from "fs";
+import * as micromatch from "micromatch";
 import * as path from "path";
-import * as vscode from "vscode";
 import { getIgnorePatterns } from "./config";
 import { OutputManager } from "./output";
 import { parserRegistry } from "./parsers";
@@ -18,23 +18,26 @@ export class ContextCollector {
   ): Promise<FileContext[]> {
     const ignorePatterns = getIgnorePatterns();
 
-    const files = await vscode.workspace.findFiles(
-      "**/*",
-      `{${ignorePatterns.join(",")}}`
-    );
-    this.output.log(`Found ${files.length} files to scan`);
+    this.output.log("Starting file discovery with micromatch...");
+    this.output.log(`Using ${ignorePatterns.length} ignore patterns`);
 
+    // Recursively discover files while respecting ignore patterns
+    const filteredFiles = await this.discoverFiles(
+      workspaceRoot,
+      workspaceRoot,
+      ignorePatterns
+    );
+    this.output.log(`Discovered ${filteredFiles.length} files after filtering`);
+
+    // Process files and create contexts
     const contexts: FileContext[] = [];
-    for (let i = 0; i < files.length; i++) {
-      if (progressCallback && !progressCallback(i + 1, files.length)) {
+    for (let i = 0; i < filteredFiles.length; i++) {
+      if (progressCallback && !progressCallback(i + 1, filteredFiles.length)) {
         this.output.log("Collection cancelled");
         break;
       }
 
-      const filePath = files[i].fsPath;
-      if (!isTextFile(filePath)) {
-        continue;
-      }
+      const filePath = filteredFiles[i];
 
       try {
         const content = fs.readFileSync(filePath, "utf8");
@@ -47,6 +50,65 @@ export class ContextCollector {
 
     this.output.log(`Collected ${contexts.length} files`);
     return contexts;
+  }
+
+  private async discoverFiles(
+    dir: string,
+    workspaceRoot: string,
+    ignorePatterns: string[]
+  ): Promise<string[]> {
+    const files: string[] = [];
+
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relativePath = path.relative(workspaceRoot, fullPath);
+
+        if (entry.isDirectory()) {
+          // Check if this directory should be ignored
+          const isIgnored =
+            micromatch.isMatch(relativePath, ignorePatterns, {
+              dot: true,
+              matchBase: true,
+            }) ||
+            micromatch.isMatch(entry.name, ignorePatterns, {
+              dot: true,
+              matchBase: true,
+            });
+
+          if (!isIgnored) {
+            // Only recurse into directories that aren't ignored
+            const subFiles = await this.discoverFiles(
+              fullPath,
+              workspaceRoot,
+              ignorePatterns
+            );
+            files.push(...subFiles);
+          }
+        } else if (entry.isFile()) {
+          // Check if this file should be ignored
+          const isIgnored =
+            micromatch.isMatch(relativePath, ignorePatterns, {
+              dot: true,
+              matchBase: true,
+            }) ||
+            micromatch.isMatch(entry.name, ignorePatterns, {
+              dot: true,
+              matchBase: true,
+            });
+
+          if (!isIgnored && isTextFile(fullPath)) {
+            files.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      this.output.error(`Failed to read directory: ${dir}`, error);
+    }
+
+    return files;
   }
 
   async processFile(
@@ -123,7 +185,7 @@ export class ContextCollector {
 
     const resolver = resolverRegistry.getResolver("dummy.py") as PythonResolver;
     const ignorePatterns = getIgnorePatterns();
-    
+
     try {
       const allPythonFiles = await resolver.resolveAllImports(
         Array.from(pythonFiles),
