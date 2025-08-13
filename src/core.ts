@@ -18,7 +18,6 @@ export class ContextCollector {
   ): Promise<FileContext[]> {
     const ignorePatterns = getIgnorePatterns();
 
-    this.output.log("Starting file discovery with micromatch...");
     this.output.log(`Using ${ignorePatterns.length} ignore patterns`);
 
     // Recursively discover files while respecting ignore patterns
