@@ -1,6 +1,8 @@
 import { parse } from "comment-json";
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
+import { getIgnorePatternsGlob } from "../config";
 import { OutputManager } from "../output";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
@@ -17,30 +19,32 @@ interface TsConfig {
   extends?: string;
 }
 
+type PathMappingCache = {
+  baseUrl: string;
+  paths: TsConfigPaths;
+} | null;
+
 export class NodeResolver extends BaseResolver {
   config: ResolverConfig = {
     extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
-    configFiles: ["tsconfig.json", "tsconfig.app.json", "jsconfig.json"],
+    configFiles: [], // No longer needed since we find them dynamically
   };
 
-  private pathMappingCache = new Map<
-    string,
-    { baseUrl: string; paths: TsConfigPaths } | null
-  >();
+  private pathMappingCache = new Map<string, PathMappingCache>();
   private output = OutputManager.getInstance();
 
-  resolve(
+  async resolve(
     importPath: string,
     baseDir: string,
     workspaceRoot: string
-  ): string | null {
+  ): Promise<string | null> {
     // Handle relative imports
     if (importPath.startsWith(".")) {
       return this.resolveRelative(importPath, baseDir);
     }
 
     // Handle absolute/alias imports
-    const pathMapping = this.getPathMapping(workspaceRoot);
+    const pathMapping = await this.getPathMapping(workspaceRoot);
     if (pathMapping) {
       return this.resolveWithPathMapping(importPath, pathMapping);
     }
@@ -48,19 +52,33 @@ export class NodeResolver extends BaseResolver {
     return null;
   }
 
-  private getPathMapping(
+  private async findConfigFiles(): Promise<string[]> {
+    const ignorePattern = getIgnorePatternsGlob();
+
+    const configs = await vscode.workspace.findFiles(
+      "**/tsconfig*.json",
+      ignorePattern
+    );
+
+    const jsConfigs = await vscode.workspace.findFiles(
+      "**/jsconfig*.json",
+      ignorePattern
+    );
+
+    return [...configs, ...jsConfigs].map((uri) => uri.fsPath);
+  }
+
+  private async getPathMapping(
     workspaceRoot: string
-  ): { baseUrl: string; paths: TsConfigPaths } | null {
+  ): Promise<{ baseUrl: string; paths: TsConfigPaths } | null> {
     const cached = this.pathMappingCache.get(workspaceRoot);
     if (cached !== undefined) {
       return cached;
     }
 
-    const configFiles = ["tsconfig.json", "tsconfig.app.json", "jsconfig.json"];
+    const configFiles = await this.findConfigFiles();
 
-    for (const configFile of configFiles) {
-      const configPath = path.join(workspaceRoot, configFile);
-
+    for (const configPath of configFiles) {
       if (!fs.existsSync(configPath)) {
         continue;
       }
@@ -89,7 +107,7 @@ export class NodeResolver extends BaseResolver {
           return result;
         }
       } catch (error) {
-        this.output.error(`Error loading ${configFile}`, error);
+        this.output.error(`Error loading ${path.basename(configPath)}`, error);
         continue;
       }
     }
