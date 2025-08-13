@@ -1,10 +1,14 @@
 import * as vscode from "vscode";
 import { CommandHandler } from "./commands";
 import { OutputManager } from "./output";
+import { SettingsInitializer } from "./settings-initializer";
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   const output = OutputManager.getInstance();
   output.log("Extension activated");
+
+  // Initialize settings with examples if user has no configuration
+  await SettingsInitializer.initializeDefaultSettings();
 
   const commandHandler = new CommandHandler();
 
