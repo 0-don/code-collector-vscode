@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as util from "util";
+import { pythonExtensions } from "../languages";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
 
@@ -159,7 +160,7 @@ if __name__ == "__main__":
 
 export class PythonResolver extends BaseResolver {
   config: ResolverConfig = {
-    extensions: [".py"],
+    extensions: [...pythonExtensions],
     configFiles: ["pyproject.toml", "setup.py", "requirements.txt"],
   };
 

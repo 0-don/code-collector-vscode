@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
+import { jvmExtensions } from "../languages";
 
 interface MavenProject {
   project?: {
@@ -32,7 +33,7 @@ interface GradleBuild {
 
 export class JvmResolver extends BaseResolver {
   config: ResolverConfig = {
-    extensions: [".java", ".kt"],
+    extensions: [...jvmExtensions],
     configFiles: [
       "pom.xml",
       "build.gradle",

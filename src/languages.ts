@@ -15,11 +15,12 @@ export const javascriptExtensions = [
   ".mdx",
 ] as const;
 
+export const jvmExtensions = [".java", ".kt"] as const;
+
+export const pythonExtensions = [".py"] as const;
+
 export const supportedExtensions = [
   ...javascriptExtensions,
-  ".java",
-  ".kt",
-  ".py",
+  ...jvmExtensions,
+  ...pythonExtensions,
 ] as const;
-
-
