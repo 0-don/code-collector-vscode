@@ -1,7 +1,5 @@
 ## Setup
 
-- install the required extensions (connor4312.esbuild-problem-matchers)
-
-## Get up and running straight away
-
-- Press `F5` to open a new window with your extension loaded.
+- npm install
+- install the required vscode extension connor4312.esbuild-problem-matchers
+- Press `F5` to open vs code in debug mode with the extension loaded
