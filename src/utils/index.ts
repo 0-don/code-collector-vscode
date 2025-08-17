@@ -1,9 +1,8 @@
 import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
+import { getIgnorePatternsGlob } from "../config";
 import { supportedExtensions } from "../languages";
 import { FileContext } from "../types";
-import { getIgnorePatternsGlob } from "../config";
 
 export function isTextFile(filePath: string): boolean {
   try {
@@ -70,31 +69,6 @@ export async function getFilesToProcess(
   }
 
   return Array.from(filesToProcess);
-}
-
-async function processFile(
-  fsPath: string,
-  workspaceRoot: string,
-  excludePattern: string,
-  filesToProcess: Set<string>
-) {
-  if (!workspaceRoot) {
-    if (isTextFile(fsPath)) {
-      filesToProcess.add(fsPath);
-    }
-    return;
-  }
-
-  const relativePath = path.relative(workspaceRoot, fsPath);
-  const foundFiles = await vscode.workspace.findFiles(
-    relativePath,
-    excludePattern,
-    1
-  );
-
-  if (foundFiles.length > 0 && isTextFile(foundFiles[0].fsPath)) {
-    filesToProcess.add(foundFiles[0].fsPath);
-  }
 }
 
 export function getWorkspaceRoot(): string {
