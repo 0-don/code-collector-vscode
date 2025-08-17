@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.50",
+  "version": "0.0.51",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -21,7 +21,11 @@
     "commands": [
       {
         "command": "code-collector.gatherImports",
-        "title": "Code Collect"
+        "title": "Code Collect (Smart)"
+      },
+      {
+        "command": "code-collector.gatherDirect",
+        "title": "Code Collect (Direct)"
       },
       {
         "command": "code-collector.collectAll",
@@ -39,14 +43,22 @@
           "group": "2_workspace@1"
         },
         {
-          "command": "code-collector.collectAll",
+          "command": "code-collector.gatherDirect",
           "group": "2_workspace@2"
+        },
+        {
+          "command": "code-collector.collectAll",
+          "group": "2_workspace@3"
         }
       ],
       "editor/context": [
         {
           "command": "code-collector.gatherImports",
           "group": "navigation@0"
+        },
+        {
+          "command": "code-collector.gatherDirect",
+          "group": "navigation@1"
         },
         {
           "command": "code-collector.collectAll",

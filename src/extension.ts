@@ -18,6 +18,12 @@ export async function activate(context: vscode.ExtensionContext) {
       commandHandler.handleGatherImports(uri, selectedFiles)
   );
 
+  const gatherDirectDisposable = vscode.commands.registerCommand(
+    "code-collector.gatherDirect",
+    (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
+      commandHandler.handleGatherDirect(uri, selectedFiles)
+  );
+
   const collectAllDisposable = vscode.commands.registerCommand(
     "code-collector.collectAll",
     () => commandHandler.handleCollectAll()
@@ -30,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     gatherImportsDisposable,
+    gatherDirectDisposable,
     collectAllDisposable,
     showOutputDisposable,
     { dispose: () => output.dispose() }
