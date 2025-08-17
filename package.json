@@ -29,7 +29,7 @@
       },
       {
         "command": "code-collector.collectAll",
-        "title": "Code Collect All"
+        "title": "Code Collect (All)"
       },
       {
         "command": "code-collector.showOutput",
@@ -40,29 +40,25 @@
       "explorer/context": [
         {
           "command": "code-collector.gatherImports",
+          "when": "resourcePath && (explorerResourceIsFolder || resourceExtname)",
           "group": "2_workspace@1"
         },
         {
           "command": "code-collector.gatherDirect",
+          "when": "resourcePath && (explorerResourceIsFolder || resourceExtname)",
           "group": "2_workspace@2"
         },
         {
           "command": "code-collector.collectAll",
+          "when": "resourcePath && explorerResourceIsFolder",
           "group": "2_workspace@3"
         }
       ],
       "editor/context": [
         {
           "command": "code-collector.gatherImports",
+          "when": "editorTextFocus",
           "group": "navigation@0"
-        },
-        {
-          "command": "code-collector.gatherDirect",
-          "group": "navigation@1"
-        },
-        {
-          "command": "code-collector.collectAll",
-          "group": "navigation@99"
         }
       ]
     },
