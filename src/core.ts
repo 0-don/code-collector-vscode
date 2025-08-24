@@ -70,11 +70,9 @@ export class ContextCollector {
           const isIgnored =
             micromatch.isMatch(relativePath, ignorePatterns, {
               dot: true,
-              matchBase: true,
             }) ||
-            micromatch.isMatch(entry.name, ignorePatterns, {
+            micromatch.isMatch(relativePath + "/", ignorePatterns, {
               dot: true,
-              matchBase: true,
             });
 
           if (!isIgnored) {
@@ -88,15 +86,9 @@ export class ContextCollector {
           }
         } else if (entry.isFile()) {
           // Check if this file should be ignored
-          const isIgnored =
-            micromatch.isMatch(relativePath, ignorePatterns, {
-              dot: true,
-              matchBase: true,
-            }) ||
-            micromatch.isMatch(entry.name, ignorePatterns, {
-              dot: true,
-              matchBase: true,
-            });
+          const isIgnored = micromatch.isMatch(relativePath, ignorePatterns, {
+            dot: true,
+          });
 
           if (!isIgnored && isTextFile(fullPath)) {
             files.push(fullPath);
