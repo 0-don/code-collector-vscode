@@ -66,12 +66,16 @@ export class ContextCollector {
         const relativePath = path.relative(workspaceRoot, fullPath);
 
         if (entry.isDirectory()) {
-          // Check if this directory should be ignored
+          // For directories, check ignore patterns against both full path and directory name
+          const directoryName = entry.name;
           const isIgnored =
             micromatch.isMatch(relativePath, ignorePatterns, {
               dot: true,
             }) ||
             micromatch.isMatch(relativePath + "/", ignorePatterns, {
+              dot: true,
+            }) ||
+            micromatch.isMatch(directoryName, ignorePatterns, {
               dot: true,
             });
 
@@ -85,10 +89,15 @@ export class ContextCollector {
             files.push(...subFiles);
           }
         } else if (entry.isFile()) {
-          // Check if this file should be ignored
-          const isIgnored = micromatch.isMatch(relativePath, ignorePatterns, {
-            dot: true,
-          });
+          // For files, check ignore patterns against both full relative path and just filename
+          const filename = path.basename(fullPath);
+          const isIgnored =
+            micromatch.isMatch(relativePath, ignorePatterns, {
+              dot: true,
+            }) ||
+            micromatch.isMatch(filename, ignorePatterns, {
+              dot: true,
+            });
 
           if (!isIgnored && isTextFile(fullPath)) {
             files.push(fullPath);
