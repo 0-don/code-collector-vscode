@@ -1,3 +1,4 @@
+
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -10,6 +11,7 @@ import {
   getFilesToProcess,
   getWorkspaceRoot,
   isTextFile,
+  shouldIgnoreFile,
 } from "./utils";
 
 export class CommandHandler {
@@ -30,7 +32,7 @@ export class CommandHandler {
         try {
           this.output.clear();
           this.output.log("Starting import-based collection...");
-          return this.handleImportBasedCollection(uri, selectedFiles, token);
+          return this.handleImportBasedCollection(uri, selectedFiles, token, false);
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);
@@ -66,6 +68,31 @@ export class CommandHandler {
     );
   }
 
+  async handleGatherSmartFilter(
+    uri: vscode.Uri,
+    selectedFiles?: vscode.Uri[]
+  ): Promise<void> {
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Code Collector: Smart filter collection...",
+        cancellable: true,
+      },
+      async (progress, token) => {
+        try {
+          this.output.clear();
+          this.output.log("Starting smart filter collection...");
+          return this.handleImportBasedCollection(uri, selectedFiles, token, true);
+        } catch (error) {
+          const errorMessage = `Error: ${error}`;
+          this.output.error(errorMessage, error);
+          vscode.window.showErrorMessage(errorMessage);
+          this.output.show();
+        }
+      }
+    );
+  }
+
   private async handleDirectCollection(
     uri: vscode.Uri,
     selectedFiles?: vscode.Uri[],
@@ -74,7 +101,6 @@ export class CommandHandler {
     const allContexts: FileContext[] = [];
     const workspaceRoot = getWorkspaceRoot();
 
-    // Use selectedFiles if provided, otherwise use the single uri
     const urisToProcess = selectedFiles?.length
       ? selectedFiles
       : uri
@@ -88,7 +114,6 @@ export class CommandHandler {
       return;
     }
 
-    // Process each selected file/folder directly without using getFilesToProcess filters
     for (const currentUri of urisToProcess) {
       if (token?.isCancellationRequested) {
         return;
@@ -102,7 +127,6 @@ export class CommandHandler {
       const stat = fs.statSync(fsPath);
 
       if (stat.isFile()) {
-        // Handle single file
         if (isTextFile(fsPath)) {
           try {
             const content = fs.readFileSync(fsPath, "utf8");
@@ -114,7 +138,6 @@ export class CommandHandler {
           }
         }
       } else if (stat.isDirectory()) {
-        // Handle directory - collect all text files recursively
         const directoryFiles = await this.collectFilesFromDirectory(
           fsPath,
           workspaceRoot
@@ -179,7 +202,6 @@ export class CommandHandler {
         if (entry.isFile() && isTextFile(fullPath)) {
           files.push(fullPath);
         } else if (entry.isDirectory()) {
-          // Recursively collect from subdirectories
           const subFiles = await this.collectFilesFromDirectory(
             fullPath,
             workspaceRoot
@@ -197,7 +219,8 @@ export class CommandHandler {
   private async handleImportBasedCollection(
     uri: vscode.Uri,
     selectedFiles?: vscode.Uri[],
-    token?: vscode.CancellationToken
+    token?: vscode.CancellationToken,
+    applyIgnorePatterns: boolean = false
   ): Promise<void> {
     const filesToProcess = await getFilesToProcess(uri, selectedFiles);
     if (filesToProcess.length === 0) {
@@ -220,7 +243,6 @@ export class CommandHandler {
       `Processing ${filesToProcess.length} initial files for imports...`
     );
 
-    // Process non-Python files
     for (const filePath of filesToProcess.filter((f) => !f.endsWith(".py"))) {
       if (token?.isCancellationRequested) {
         return;
@@ -234,7 +256,6 @@ export class CommandHandler {
       );
     }
 
-    // Add initial Python files and process them all at once
     filesToProcess
       .filter((f) => f.endsWith(".py"))
       .forEach((f) => pythonFiles.add(f));
@@ -252,21 +273,27 @@ export class CommandHandler {
       return;
     }
 
-    const output = formatContexts(allContexts);
-    const totalLines = allContexts.reduce(
+    let finalContexts = allContexts;
+    if (applyIgnorePatterns) {
+      finalContexts = allContexts.filter(ctx => !shouldIgnoreFile(ctx.relativePath, workspaceRoot));
+      const filtered = allContexts.length - finalContexts.length;
+      if (filtered > 0) {
+        this.output.log(`Filtered out ${filtered} files based on ignore patterns`);
+      }
+    }
+
+    const output = formatContexts(finalContexts);
+    const totalLines = finalContexts.reduce(
       (sum, ctx) => sum + ctx.content.split("\n").length,
       0
     );
     await vscode.env.clipboard.writeText(output);
 
-    const programmingFiles = allContexts.filter(
+    const programmingFiles = finalContexts.filter(
       (ctx) => parserRegistry.getParser(ctx.path) !== null
     ).length;
-    const successMessage = `Copied ${
-      allContexts.length
-    } files (${totalLines} lines) - ${programmingFiles} with imports, ${
-      allContexts.length - programmingFiles
-    } text`;
+    const modeLabel = applyIgnorePatterns ? "smart filter" : `${programmingFiles} with imports, ${finalContexts.length - programmingFiles} text`;
+    const successMessage = `Copied ${finalContexts.length} files (${totalLines} lines) - ${modeLabel}`;
 
     this.output.log(`✓ ${successMessage}`);
     vscode.window.showInformationMessage(successMessage);

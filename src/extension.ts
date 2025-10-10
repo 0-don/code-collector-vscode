@@ -7,7 +7,6 @@ export async function activate(context: vscode.ExtensionContext) {
   const output = OutputManager.getInstance();
   output.log("Extension activated");
 
-  // Initialize settings with examples if user has no configuration
   await SettingsInitializer.initializeDefaultSettings();
 
   const commandHandler = new CommandHandler();
@@ -24,6 +23,12 @@ export async function activate(context: vscode.ExtensionContext) {
       commandHandler.handleGatherDirect(uri, selectedFiles)
   );
 
+  const gatherSmartFilterDisposable = vscode.commands.registerCommand(
+    "code-collector.gatherSmartFilter",
+    (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
+      commandHandler.handleGatherSmartFilter(uri, selectedFiles)
+  );
+
   const collectAllDisposable = vscode.commands.registerCommand(
     "code-collector.collectAll",
     () => commandHandler.handleCollectAll()
@@ -37,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     gatherImportsDisposable,
     gatherDirectDisposable,
+    gatherSmartFilterDisposable,
     collectAllDisposable,
     showOutputDisposable,
     { dispose: () => output.dispose() }

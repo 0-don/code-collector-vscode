@@ -1,6 +1,8 @@
 import * as fs from "fs";
+import * as micromatch from "micromatch";
+import * as path from "path";
 import * as vscode from "vscode";
-import { getIgnorePatternsGlob } from "../config";
+import { getIgnorePatterns, getIgnorePatternsGlob } from "../config";
 import { supportedExtensions } from "../languages";
 import { FileContext } from "../types";
 
@@ -20,6 +22,14 @@ export function isTextFile(filePath: string): boolean {
 
 export function isSupportedFile(filePath: string): boolean {
   return supportedExtensions.some((ext) => filePath.endsWith(ext));
+}
+
+export function shouldIgnoreFile(relativePath: string, workspaceRoot: string): boolean {
+  const ignorePatterns = getIgnorePatterns();
+  const filename = path.basename(relativePath);
+  
+  return micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
+         micromatch.isMatch(filename, ignorePatterns, { dot: true });
 }
 
 export async function getFilesToProcess(
@@ -42,7 +52,6 @@ export async function getFilesToProcess(
 
     const stat = fs.statSync(fsPath);
     if (stat.isFile()) {
-      // Direct file check - bypass glob patterns for individual files
       if (isTextFile(fsPath)) {
         filesToProcess.add(fsPath);
       }
@@ -60,7 +69,6 @@ export async function getFilesToProcess(
     }
   }
 
-  // Fallback to active editor if no files found
   if (filesToProcess.size === 0) {
     const activeEditorFile = vscode.window.activeTextEditor?.document.uri;
     if (activeEditorFile && isTextFile(activeEditorFile.fsPath)) {

@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.54",
+  "version": "0.0.55",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -18,7 +18,7 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
+ "commands": [
       {
         "command": "code-collector.gatherImports",
         "title": "Code Collect (Smart)"
@@ -26,6 +26,10 @@
       {
         "command": "code-collector.gatherDirect",
         "title": "Code Collect (Direct)"
+      },
+      {
+        "command": "code-collector.gatherSmartFilter",
+        "title": "Code Collect (Smart Filter)"
       },
       {
         "command": "code-collector.collectAll",
@@ -49,9 +53,14 @@
           "group": "2_workspace@2"
         },
         {
+          "command": "code-collector.gatherSmartFilter",
+          "when": "resourcePath && (explorerResourceIsFolder || resourceExtname)",
+          "group": "2_workspace@3"
+        },
+        {
           "command": "code-collector.collectAll",
           "when": "resourcePath && explorerResourceIsFolder",
-          "group": "2_workspace@3"
+          "group": "2_workspace@4"
         }
       ],
       "editor/context": [
@@ -144,17 +153,17 @@
     "@types/micromatch": "^4.0.9",
     "@types/node": "24.x",
     "@types/vscode": "1.80.0",
-    "@typescript-eslint/eslint-plugin": "^8.39.1",
-    "@typescript-eslint/parser": "^8.39.1",
-    "@vscode/test-cli": "^0.0.11",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "esbuild": "^0.25.9",
-    "eslint": "^9.33.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.37.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.2.5",
+    "fast-xml-parser": "^5.3.0",
     "gradle-to-js": "^2.0.1",
     "micromatch": "^4.0.8"
   }
