@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.55",
+  "version": "0.0.56",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -18,7 +18,7 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
- "commands": [
+    "commands": [
       {
         "command": "code-collector.gatherImports",
         "title": "Code Collect (Smart)"
@@ -68,6 +68,11 @@
           "command": "code-collector.gatherImports",
           "when": "editorTextFocus",
           "group": "navigation@0"
+        },
+        {
+          "command": "code-collector.gatherSmartFilter",
+          "when": "editorTextFocus",
+          "group": "navigation@1"
         }
       ]
     },
