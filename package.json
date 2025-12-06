@@ -2,7 +2,7 @@
   "name": "code-collector",
   "displayName": "Code Collector",
   "description": "Gather code context for AI based on imports",
-  "version": "0.0.56",
+  "version": "0.0.57",
   "publisher": "0-don",
   "icon": "assets/icon.png",
   "repository": {
@@ -133,7 +133,8 @@
             "*.egg-info/**",
             ".git/**",
             ".idea/**",
-            ".DS_Store"
+            ".DS_Store",
+            ".expo"
           ],
           "description": "Glob patterns for files to ignore when collecting all code"
         }
