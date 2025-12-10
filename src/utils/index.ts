@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as micromatch from "micromatch";
 import * as path from "path";
 import * as vscode from "vscode";
-import { getIgnorePatterns, getIgnorePatternsGlob } from "../config";
+import { getIgnorePatterns, getIgnorePatternsGlob } from "../lib/config";
 import { supportedExtensions } from "../lib/languages";
 import { FileContext } from "../types";
 

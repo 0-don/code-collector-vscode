@@ -1,7 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { ContextCollector } from "./core";
+import { ContextCollector } from "./lib/core";
+import { OutputManager } from "./lib/output";
+import { getFileTypeStats, showStatsNotification } from "./lib/stats";
 import { parserRegistry } from "./parsers";
 import { FileContext } from "./types";
 import {
@@ -11,8 +13,6 @@ import {
   isTextFile,
   shouldIgnoreFile,
 } from "./utils";
-import { OutputManager } from "./lib/output";
-import { getFileTypeStats, showStatsNotification } from "./lib/stats";
 
 export class CommandHandler {
   private contextCollector = new ContextCollector();

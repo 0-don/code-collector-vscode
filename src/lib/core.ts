@@ -1,13 +1,13 @@
 import * as fs from "fs";
 import * as micromatch from "micromatch";
 import * as path from "path";
+import { parserRegistry } from "../parsers";
+import { resolverRegistry } from "../resolvers";
+import { PythonResolver } from "../resolvers/python-resolver";
+import { FileContext } from "../types";
+import { isTextFile } from "../utils";
 import { getIgnorePatterns } from "./config";
-import { OutputManager } from "./lib/output";
-import { parserRegistry } from "./parsers";
-import { resolverRegistry } from "./resolvers";
-import { PythonResolver } from "./resolvers/python-resolver";
-import { FileContext } from "./types";
-import { isTextFile } from "./utils";
+import { OutputManager } from "./output";
 
 export class ContextCollector {
   private output = OutputManager.getInstance();
