@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as micromatch from "micromatch";
 import * as path from "path";
 import { getIgnorePatterns } from "./config";
-import { OutputManager } from "./output";
+import { OutputManager } from "./lib/output";
 import { parserRegistry } from "./parsers";
 import { resolverRegistry } from "./resolvers";
 import { PythonResolver } from "./resolvers/python-resolver";

@@ -2,7 +2,6 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { ContextCollector } from "./core";
-import { OutputManager } from "./output";
 import { parserRegistry } from "./parsers";
 import { FileContext } from "./types";
 import {
@@ -12,6 +11,8 @@ import {
   isTextFile,
   shouldIgnoreFile,
 } from "./utils";
+import { OutputManager } from "./lib/output";
+import { getFileTypeStats, showStatsNotification } from "./lib/stats";
 
 export class CommandHandler {
   private contextCollector = new ContextCollector();
@@ -189,11 +190,17 @@ export class CommandHandler {
       (sum, ctx) => sum + ctx.content.split("\n").length,
       0,
     );
+    const stats = getFileTypeStats(allContexts);
     await vscode.env.clipboard.writeText(output);
 
     const successMessage = `Copied ${allContexts.length} files (${totalLines} lines) - direct collection`;
     this.output.log(`✓ ${successMessage}`);
-    vscode.window.showInformationMessage(successMessage);
+    showStatsNotification(
+      allContexts.length,
+      totalLines,
+      stats,
+      "direct collection",
+    );
   }
 
   private async collectFilesFromDirectory(
@@ -300,6 +307,7 @@ export class CommandHandler {
       (sum, ctx) => sum + ctx.content.split("\n").length,
       0,
     );
+    const stats = getFileTypeStats(finalContexts);
     await vscode.env.clipboard.writeText(output);
 
     const programmingFiles = finalContexts.filter(
@@ -308,10 +316,10 @@ export class CommandHandler {
     const modeLabel = applyIgnorePatterns
       ? "smart filter"
       : `${programmingFiles} with imports, ${finalContexts.length - programmingFiles} text`;
-    const successMessage = `Copied ${finalContexts.length} files (${totalLines} lines) - ${modeLabel}`;
 
+    const successMessage = `Copied ${finalContexts.length} files (${totalLines} lines) - ${modeLabel}`;
     this.output.log(`✓ ${successMessage}`);
-    vscode.window.showInformationMessage(successMessage);
+    showStatsNotification(finalContexts.length, totalLines, stats, modeLabel);
   }
 
   async handleCollectAll(): Promise<void> {
@@ -351,12 +359,13 @@ export class CommandHandler {
             (sum, ctx) => sum + ctx.content.split("\n").length,
             0,
           );
+          const stats = getFileTypeStats(contexts);
           const output = formatContexts(contexts);
           await vscode.env.clipboard.writeText(output);
 
           const successMessage = `Copied ${contexts.length} files (${totalLines} lines)`;
           this.output.log(`✓ ${successMessage}`);
-          vscode.window.showInformationMessage(successMessage);
+          showStatsNotification(contexts.length, totalLines, stats);
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);

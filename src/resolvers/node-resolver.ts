@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
-import { javascriptExtensions } from "../languages";
+import { javascriptExtensions } from "../lib/languages";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
 

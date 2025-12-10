@@ -1,9 +1,9 @@
 import { XMLParser } from "fast-xml-parser";
 import * as fs from "fs";
 import * as path from "path";
+import { jvmExtensions } from "../lib/languages";
 import { ResolverConfig } from "../types";
 import { BaseResolver } from "./base-resolver";
-import { jvmExtensions } from "../languages";
 
 interface MavenProject {
   project?: {

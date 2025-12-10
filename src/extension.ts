@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { CommandHandler } from "./commands";
-import { OutputManager } from "./output";
-import { SettingsInitializer } from "./settings-initializer";
+import { OutputManager } from "./lib/output";
+import { SettingsInitializer } from "./lib/settings-initializer";
 
 export async function activate(context: vscode.ExtensionContext) {
   const output = OutputManager.getInstance();

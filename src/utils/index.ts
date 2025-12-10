@@ -3,7 +3,7 @@ import * as micromatch from "micromatch";
 import * as path from "path";
 import * as vscode from "vscode";
 import { getIgnorePatterns, getIgnorePatternsGlob } from "../config";
-import { supportedExtensions } from "../languages";
+import { supportedExtensions } from "../lib/languages";
 import { FileContext } from "../types";
 
 export function isTextFile(filePath: string): boolean {
