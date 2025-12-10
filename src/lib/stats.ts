@@ -24,19 +24,52 @@ export function getFileTypeStats(contexts: FileContext[]): FileTypeStats {
   return stats;
 }
 
-function showStatsQuickPick(
+async function getLanguageName(ext: string): Promise<string> {
+  if (ext === "no extension") {
+    return "no extension";
+  }
+
+  try {
+    const languages = await import("linguist-languages");
+    const extNormalized = ext.toLowerCase();
+
+    for (const [langName, langData] of Object.entries(languages)) {
+      const extensions = (langData as any).extensions;
+      if (
+        Array.isArray(extensions) &&
+        extensions.some((e: string) => e.toLowerCase() === extNormalized)
+      ) {
+        return langName;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load linguist-languages:", error);
+  }
+
+  return ext;
+}
+
+async function showStatsQuickPick(
   fileCount: number,
   totalLines: number,
   stats: FileTypeStats,
   modeLabel?: string,
-): void {
+): Promise<void> {
   const entries = Object.entries(stats).sort((a, b) => b[1].lines - a[1].lines);
 
-  const items = entries.map(([ext, { count, lines }]) => ({
-    label: ext,
-    description: `${count} files`,
-    detail: `${lines} lines`,
-  }));
+  const items = await Promise.all(
+    entries.map(async ([ext, { count, lines }]) => {
+      const langName = await getLanguageName(ext);
+      const displayLabel =
+        ext === "no extension" ? "no extension" : `${langName} (${ext})`;
+
+      return {
+        label: displayLabel,
+        description: `${count} files`,
+        detail: `${lines} lines`,
+      };
+    }),
+  );
 
   const quickPick = vscode.window.createQuickPick();
   quickPick.title = `✓ Copied ${fileCount} files (${totalLines} lines)${modeLabel ? ` - ${modeLabel}` : ""}`;
