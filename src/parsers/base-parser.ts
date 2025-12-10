@@ -5,7 +5,7 @@ export abstract class BaseParser {
 
   abstract parseImports(
     content: string,
-    filePath: string
+    filePath: string,
   ): ImportInfo[] | Promise<ImportInfo[]>;
 
   canHandle(filePath: string): boolean {

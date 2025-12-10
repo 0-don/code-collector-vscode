@@ -6,7 +6,7 @@
 
 - **Smart Import Following**: Automatically collects files based on import statements
 - **Multi-Language**: TypeScript, JavaScript, Java, Kotlin, Python
-- **Two Modes**: 
+- **Two Modes**:
   - Import-based collection (follows dependencies)
   - Collect entire workspace (with filtering)
 - **AI-Ready Output**: Formatted with file paths and line numbers
@@ -18,6 +18,7 @@
 - **Context Menu**: Right-click files/folders → "Code Collect"
 
 ## Output Format
+
 ```plaintext
 // src/utils/helper.ts (L1-L25)
 [your code here]

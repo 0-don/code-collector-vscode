@@ -169,7 +169,7 @@ export class PythonResolver extends BaseResolver {
   async resolve(
     importPath: string,
     baseDir: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<string | null> {
     // Fallback to original logic for single imports
     if (importPath.startsWith(".")) {
@@ -180,7 +180,7 @@ export class PythonResolver extends BaseResolver {
 
   async resolveAllImports(
     filePaths: string[],
-    ignorePatterns: string[] = []
+    ignorePatterns: string[] = [],
   ): Promise<string[]> {
     const helperPath = await this.ensureHelperExists();
     if (!helperPath) {
@@ -224,7 +224,7 @@ export class PythonResolver extends BaseResolver {
 
   private resolveRelativeImport(
     importPath: string,
-    baseDir: string
+    baseDir: string,
   ): string | null {
     const parts = importPath.split(".");
     let currentDir = baseDir;
@@ -246,7 +246,7 @@ export class PythonResolver extends BaseResolver {
   private resolveAbsoluteImport(
     importPath: string,
     baseDir: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): string | null {
     const parts = importPath.split(".");
 

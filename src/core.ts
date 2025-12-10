@@ -14,7 +14,7 @@ export class ContextCollector {
 
   async collectAllFiles(
     workspaceRoot: string,
-    progressCallback?: (current: number, total: number) => boolean
+    progressCallback?: (current: number, total: number) => boolean,
   ): Promise<FileContext[]> {
     const ignorePatterns = getIgnorePatterns();
 
@@ -24,7 +24,7 @@ export class ContextCollector {
     const filteredFiles = await this.discoverFiles(
       workspaceRoot,
       workspaceRoot,
-      ignorePatterns
+      ignorePatterns,
     );
     this.output.log(`Discovered ${filteredFiles.length} files after filtering`);
 
@@ -54,7 +54,7 @@ export class ContextCollector {
   private async discoverFiles(
     dir: string,
     workspaceRoot: string,
-    ignorePatterns: string[]
+    ignorePatterns: string[],
   ): Promise<string[]> {
     const files: string[] = [];
 
@@ -84,7 +84,7 @@ export class ContextCollector {
             const subFiles = await this.discoverFiles(
               fullPath,
               workspaceRoot,
-              ignorePatterns
+              ignorePatterns,
             );
             files.push(...subFiles);
           }
@@ -116,7 +116,7 @@ export class ContextCollector {
     contexts: FileContext[],
     processed: Set<string>,
     workspaceRoot: string,
-    pythonFiles: Set<string>
+    pythonFiles: Set<string>,
   ): Promise<void> {
     const normalizedPath = path.resolve(filePath);
 
@@ -150,7 +150,7 @@ export class ContextCollector {
           const resolvedPath = await resolver.resolve(
             importInfo.module,
             path.dirname(normalizedPath),
-            workspaceRoot
+            workspaceRoot,
           );
 
           if (resolvedPath && parserRegistry.getParser(resolvedPath)) {
@@ -159,7 +159,7 @@ export class ContextCollector {
               contexts,
               processed,
               workspaceRoot,
-              pythonFiles
+              pythonFiles,
             );
           }
         }
@@ -173,14 +173,14 @@ export class ContextCollector {
     pythonFiles: Set<string>,
     contexts: FileContext[],
     processed: Set<string>,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<void> {
     if (pythonFiles.size === 0) {
       return;
     }
 
     this.output.log(
-      `Processing ${pythonFiles.size} Python files with helper...`
+      `Processing ${pythonFiles.size} Python files with helper...`,
     );
 
     const resolver = resolverRegistry.getResolver("dummy.py") as PythonResolver;
@@ -189,10 +189,10 @@ export class ContextCollector {
     try {
       const allPythonFiles = await resolver.resolveAllImports(
         Array.from(pythonFiles),
-        ignorePatterns
+        ignorePatterns,
       );
       this.output.log(
-        `Python helper found ${allPythonFiles.length} total Python files`
+        `Python helper found ${allPythonFiles.length} total Python files`,
       );
 
       for (const pythonFile of allPythonFiles) {
@@ -208,7 +208,7 @@ export class ContextCollector {
           } catch (error) {
             this.output.error(
               `Failed to read Python file: ${normalizedPath}`,
-              error
+              error,
             );
           }
         }
@@ -216,7 +216,7 @@ export class ContextCollector {
     } catch (error) {
       this.output.error(
         `Python helper failed, processing files individually`,
-        error
+        error,
       );
 
       // Fallback: add Python files without import resolution
@@ -231,7 +231,7 @@ export class ContextCollector {
           } catch (error) {
             this.output.error(
               `Failed to read Python file: ${pythonFile}`,
-              error
+              error,
             );
           }
         }

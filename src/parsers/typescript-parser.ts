@@ -21,7 +21,7 @@ export class TypeScriptParser extends BaseParser {
       content,
       scriptTarget,
       true,
-      scriptKind
+      scriptKind,
     );
 
     const imports: ImportInfo[] = [];

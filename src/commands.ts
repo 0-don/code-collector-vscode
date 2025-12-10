@@ -1,10 +1,8 @@
-
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { ContextCollector } from "./core";
 import { OutputManager } from "./output";
-import { parserRegistry } from "./parsers";
 import { FileContext } from "./types";
 import {
   formatContexts,
@@ -14,13 +12,93 @@ import {
   shouldIgnoreFile,
 } from "./utils";
 
+interface FileTypeStats {
+  [ext: string]: { count: number; lines: number };
+}
+
+function getFileTypeStats(contexts: FileContext[]): FileTypeStats {
+  const stats: FileTypeStats = {};
+
+  for (const ctx of contexts) {
+    const ext = path.extname(ctx.path) || "no extension";
+    const lines = ctx.content.split("\n").length;
+
+    if (!stats[ext]) {
+      stats[ext] = { count: 0, lines: 0 };
+    }
+
+    stats[ext].count++;
+    stats[ext].lines += lines;
+  }
+
+  return stats;
+}
+
+function showStatsNotification(
+  fileCount: number,
+  totalLines: number,
+  stats: FileTypeStats,
+): void {
+  const entries = Object.entries(stats).sort((a, b) => b[1].lines - a[1].lines);
+
+  // Create status bar item
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    1000,
+  );
+
+  statusBarItem.text = `$(check) Copied ${fileCount} files (${totalLines} lines)`;
+  statusBarItem.tooltip = entries
+    .map(([ext, { count, lines }]) => `${ext}: ${count} files (${lines} lines)`)
+    .join("\n");
+
+  statusBarItem.command = {
+    title: "Show Details",
+    command: "code-collector.showStatsDetails",
+    arguments: [entries],
+  };
+
+  statusBarItem.show();
+
+  // Auto-hide after 8 seconds
+  setTimeout(() => {
+    statusBarItem.dispose();
+  }, 8000);
+
+  // Also show simple notification
+  vscode.window.showInformationMessage(
+    `Copied ${fileCount} files (${totalLines} lines)`,
+  );
+}
+
 export class CommandHandler {
   private contextCollector = new ContextCollector();
   private output = OutputManager.getInstance();
 
+  constructor(context: vscode.ExtensionContext) {
+    // Register the stats details command
+    const showStatsCommand = vscode.commands.registerCommand(
+      "code-collector.showStatsDetails",
+      (entries: [string, { count: number; lines: number }][]) => {
+        const items = entries.map(([ext, { count, lines }]) => ({
+          label: `$(file) ${ext}`,
+          description: `${count} files`,
+          detail: `${lines} lines total`,
+        }));
+
+        vscode.window.showQuickPick(items, {
+          title: "File Type Statistics",
+          placeHolder: "Breakdown by file extension",
+        });
+      },
+    );
+
+    context.subscriptions.push(showStatsCommand);
+  }
+
   async handleGatherImports(
     uri: vscode.Uri,
-    selectedFiles?: vscode.Uri[]
+    selectedFiles?: vscode.Uri[],
   ): Promise<void> {
     return vscode.window.withProgress(
       {
@@ -32,20 +110,25 @@ export class CommandHandler {
         try {
           this.output.clear();
           this.output.log("Starting import-based collection...");
-          return this.handleImportBasedCollection(uri, selectedFiles, token, false);
+          return this.handleImportBasedCollection(
+            uri,
+            selectedFiles,
+            token,
+            false,
+          );
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);
           vscode.window.showErrorMessage(errorMessage);
           this.output.show();
         }
-      }
+      },
     );
   }
 
   async handleGatherDirect(
     uri: vscode.Uri,
-    selectedFiles?: vscode.Uri[]
+    selectedFiles?: vscode.Uri[],
   ): Promise<void> {
     return vscode.window.withProgress(
       {
@@ -64,13 +147,13 @@ export class CommandHandler {
           vscode.window.showErrorMessage(errorMessage);
           this.output.show();
         }
-      }
+      },
     );
   }
 
   async handleGatherSmartFilter(
     uri: vscode.Uri,
-    selectedFiles?: vscode.Uri[]
+    selectedFiles?: vscode.Uri[],
   ): Promise<void> {
     return vscode.window.withProgress(
       {
@@ -82,21 +165,26 @@ export class CommandHandler {
         try {
           this.output.clear();
           this.output.log("Starting smart filter collection...");
-          return this.handleImportBasedCollection(uri, selectedFiles, token, true);
+          return this.handleImportBasedCollection(
+            uri,
+            selectedFiles,
+            token,
+            true,
+          );
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);
           vscode.window.showErrorMessage(errorMessage);
           this.output.show();
         }
-      }
+      },
     );
   }
 
   private async handleDirectCollection(
     uri: vscode.Uri,
     selectedFiles?: vscode.Uri[],
-    token?: vscode.CancellationToken
+    token?: vscode.CancellationToken,
   ): Promise<void> {
     const allContexts: FileContext[] = [];
     const workspaceRoot = getWorkspaceRoot();
@@ -104,8 +192,8 @@ export class CommandHandler {
     const urisToProcess = selectedFiles?.length
       ? selectedFiles
       : uri
-      ? [uri]
-      : [];
+        ? [uri]
+        : [];
 
     if (urisToProcess.length === 0) {
       const message = "No files or folders selected";
@@ -140,7 +228,7 @@ export class CommandHandler {
       } else if (stat.isDirectory()) {
         const directoryFiles = await this.collectFilesFromDirectory(
           fsPath,
-          workspaceRoot
+          workspaceRoot,
         );
         for (const filePath of directoryFiles) {
           if (token?.isCancellationRequested) {
@@ -158,8 +246,8 @@ export class CommandHandler {
         this.output.log(
           `Added ${directoryFiles.length} files from: ${path.relative(
             workspaceRoot,
-            fsPath
-          )}`
+            fsPath,
+          )}`,
         );
       }
     }
@@ -178,18 +266,20 @@ export class CommandHandler {
     const output = formatContexts(allContexts);
     const totalLines = allContexts.reduce(
       (sum, ctx) => sum + ctx.content.split("\n").length,
-      0
+      0,
     );
+    const stats = getFileTypeStats(allContexts);
     await vscode.env.clipboard.writeText(output);
 
-    const successMessage = `Copied ${allContexts.length} files (${totalLines} lines) - direct collection`;
-    this.output.log(`✓ ${successMessage}`);
-    vscode.window.showInformationMessage(successMessage);
+    this.output.log(
+      `✓ Copied ${allContexts.length} files (${totalLines} lines)`,
+    );
+    showStatsNotification(allContexts.length, totalLines, stats);
   }
 
   private async collectFilesFromDirectory(
     dirPath: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<string[]> {
     const files: string[] = [];
 
@@ -204,7 +294,7 @@ export class CommandHandler {
         } else if (entry.isDirectory()) {
           const subFiles = await this.collectFilesFromDirectory(
             fullPath,
-            workspaceRoot
+            workspaceRoot,
           );
           files.push(...subFiles);
         }
@@ -220,7 +310,7 @@ export class CommandHandler {
     uri: vscode.Uri,
     selectedFiles?: vscode.Uri[],
     token?: vscode.CancellationToken,
-    applyIgnorePatterns: boolean = false
+    applyIgnorePatterns: boolean = false,
   ): Promise<void> {
     const filesToProcess = await getFilesToProcess(uri, selectedFiles);
     if (filesToProcess.length === 0) {
@@ -240,7 +330,7 @@ export class CommandHandler {
     const workspaceRoot = getWorkspaceRoot();
 
     this.output.log(
-      `Processing ${filesToProcess.length} initial files for imports...`
+      `Processing ${filesToProcess.length} initial files for imports...`,
     );
 
     for (const filePath of filesToProcess.filter((f) => !f.endsWith(".py"))) {
@@ -252,7 +342,7 @@ export class CommandHandler {
         allContexts,
         processed,
         workspaceRoot,
-        pythonFiles
+        pythonFiles,
       );
     }
 
@@ -267,7 +357,7 @@ export class CommandHandler {
       pythonFiles,
       allContexts,
       processed,
-      workspaceRoot
+      workspaceRoot,
     );
     if (token?.isCancellationRequested) {
       return;
@@ -275,28 +365,29 @@ export class CommandHandler {
 
     let finalContexts = allContexts;
     if (applyIgnorePatterns) {
-      finalContexts = allContexts.filter(ctx => !shouldIgnoreFile(ctx.relativePath, workspaceRoot));
+      finalContexts = allContexts.filter(
+        (ctx) => !shouldIgnoreFile(ctx.relativePath, workspaceRoot),
+      );
       const filtered = allContexts.length - finalContexts.length;
       if (filtered > 0) {
-        this.output.log(`Filtered out ${filtered} files based on ignore patterns`);
+        this.output.log(
+          `Filtered out ${filtered} files based on ignore patterns`,
+        );
       }
     }
 
     const output = formatContexts(finalContexts);
     const totalLines = finalContexts.reduce(
       (sum, ctx) => sum + ctx.content.split("\n").length,
-      0
+      0,
     );
+    const stats = getFileTypeStats(finalContexts);
     await vscode.env.clipboard.writeText(output);
 
-    const programmingFiles = finalContexts.filter(
-      (ctx) => parserRegistry.getParser(ctx.path) !== null
-    ).length;
-    const modeLabel = applyIgnorePatterns ? "smart filter" : `${programmingFiles} with imports, ${finalContexts.length - programmingFiles} text`;
-    const successMessage = `Copied ${finalContexts.length} files (${totalLines} lines) - ${modeLabel}`;
-
-    this.output.log(`✓ ${successMessage}`);
-    vscode.window.showInformationMessage(successMessage);
+    this.output.log(
+      `✓ Copied ${finalContexts.length} files (${totalLines} lines)`,
+    );
+    showStatsNotification(finalContexts.length, totalLines, stats);
   }
 
   async handleCollectAll(): Promise<void> {
@@ -325,7 +416,7 @@ export class CommandHandler {
 
           const contexts = await this.contextCollector.collectAllFiles(
             workspaceFolder.uri.fsPath,
-            () => !token.isCancellationRequested
+            () => !token.isCancellationRequested,
           );
 
           if (token.isCancellationRequested) {
@@ -334,21 +425,23 @@ export class CommandHandler {
 
           const totalLines = contexts.reduce(
             (sum, ctx) => sum + ctx.content.split("\n").length,
-            0
+            0,
           );
+          const stats = getFileTypeStats(contexts);
           const output = formatContexts(contexts);
           await vscode.env.clipboard.writeText(output);
 
-          const successMessage = `Copied ${contexts.length} files (${totalLines} lines)`;
-          this.output.log(`✓ ${successMessage}`);
-          vscode.window.showInformationMessage(successMessage);
+          this.output.log(
+            `✓ Copied ${contexts.length} files (${totalLines} lines)`,
+          );
+          showStatsNotification(contexts.length, totalLines, stats);
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);
           vscode.window.showErrorMessage(errorMessage);
           this.output.show();
         }
-      }
+      },
     );
   }
 }

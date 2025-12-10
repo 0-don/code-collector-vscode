@@ -24,17 +24,22 @@ export function isSupportedFile(filePath: string): boolean {
   return supportedExtensions.some((ext) => filePath.endsWith(ext));
 }
 
-export function shouldIgnoreFile(relativePath: string, workspaceRoot: string): boolean {
+export function shouldIgnoreFile(
+  relativePath: string,
+  workspaceRoot: string,
+): boolean {
   const ignorePatterns = getIgnorePatterns();
   const filename = path.basename(relativePath);
-  
-  return micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
-         micromatch.isMatch(filename, ignorePatterns, { dot: true });
+
+  return (
+    micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
+    micromatch.isMatch(filename, ignorePatterns, { dot: true })
+  );
 }
 
 export async function getFilesToProcess(
   uri: vscode.Uri,
-  selectedFiles?: vscode.Uri[]
+  selectedFiles?: vscode.Uri[],
 ): Promise<string[]> {
   const excludePattern = getIgnorePatternsGlob();
 
@@ -42,8 +47,8 @@ export async function getFilesToProcess(
   const urisToProcess = selectedFiles?.length
     ? selectedFiles
     : uri
-    ? [uri]
-    : [];
+      ? [uri]
+      : [];
   for (const u of urisToProcess) {
     const fsPath = u.fsPath;
     if (!fs.existsSync(fsPath)) {
@@ -59,7 +64,7 @@ export async function getFilesToProcess(
       const pattern = new vscode.RelativePattern(u, "**/*");
       const foundFiles = await vscode.workspace.findFiles(
         pattern,
-        excludePattern
+        excludePattern,
       );
       for (const file of foundFiles) {
         if (isTextFile(file.fsPath)) {

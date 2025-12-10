@@ -14,29 +14,29 @@ export async function activate(context: vscode.ExtensionContext) {
   const gatherImportsDisposable = vscode.commands.registerCommand(
     "code-collector.gatherImports",
     (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
-      commandHandler.handleGatherImports(uri, selectedFiles)
+      commandHandler.handleGatherImports(uri, selectedFiles),
   );
 
   const gatherDirectDisposable = vscode.commands.registerCommand(
     "code-collector.gatherDirect",
     (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
-      commandHandler.handleGatherDirect(uri, selectedFiles)
+      commandHandler.handleGatherDirect(uri, selectedFiles),
   );
 
   const gatherSmartFilterDisposable = vscode.commands.registerCommand(
     "code-collector.gatherSmartFilter",
     (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
-      commandHandler.handleGatherSmartFilter(uri, selectedFiles)
+      commandHandler.handleGatherSmartFilter(uri, selectedFiles),
   );
 
   const collectAllDisposable = vscode.commands.registerCommand(
     "code-collector.collectAll",
-    () => commandHandler.handleCollectAll()
+    () => commandHandler.handleCollectAll(),
   );
 
   const showOutputDisposable = vscode.commands.registerCommand(
     "code-collector.showOutput",
-    () => output.show()
+    () => output.show(),
   );
 
   context.subscriptions.push(
@@ -45,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
     gatherSmartFilterDisposable,
     collectAllDisposable,
     showOutputDisposable,
-    { dispose: () => output.dispose() }
+    { dispose: () => output.dispose() },
   );
 }
 

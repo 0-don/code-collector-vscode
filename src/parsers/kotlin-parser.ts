@@ -75,7 +75,7 @@ export class KotlinParser extends BaseParser {
     // Basic validation for Kotlin import paths
     // Should be a valid package/class name or wildcard
     return /^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*(\.\*)?$/.test(
-      importPath
+      importPath,
     );
   }
 }

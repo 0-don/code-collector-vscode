@@ -49,7 +49,7 @@ export class JvmResolver extends BaseResolver {
   async resolve(
     importPath: string,
     baseDir: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<string | null> {
     const classPath = importPath.replace(/\./g, "/");
     const projectInfo = await this.getProjectInfo(workspaceRoot);
@@ -100,7 +100,7 @@ export class JvmResolver extends BaseResolver {
 
   private async setupMavenProject(
     workspaceRoot: string,
-    info: ProjectInfo
+    info: ProjectInfo,
   ): Promise<void> {
     try {
       const xmlParser = new XMLParser({
@@ -147,7 +147,7 @@ export class JvmResolver extends BaseResolver {
 
   private async setupGradleProject(
     workspaceRoot: string,
-    info: ProjectInfo
+    info: ProjectInfo,
   ): Promise<void> {
     try {
       const g2js = await import("gradle-to-js/lib/parser");
@@ -157,9 +157,8 @@ export class JvmResolver extends BaseResolver {
       for (const settingsFile of settingsFiles) {
         const settingsPath = path.join(workspaceRoot, settingsFile);
         if (fs.existsSync(settingsPath)) {
-          const settingsObj: GradleSettings = await g2js.parseFile(
-            settingsPath
-          );
+          const settingsObj: GradleSettings =
+            await g2js.parseFile(settingsPath);
 
           // Extract included projects
           if (settingsObj.include) {

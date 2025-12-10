@@ -20,7 +20,7 @@ export class SettingsInitializer {
         .update(
           "codeCollector.ignorePatterns",
           examplePatterns,
-          vscode.ConfigurationTarget.Global
+          vscode.ConfigurationTarget.Global,
         );
     } catch (error) {
       console.log("Could not initialize default settings:", error);

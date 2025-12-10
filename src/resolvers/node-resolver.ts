@@ -16,7 +16,7 @@ export class NodeResolver extends BaseResolver {
   async resolve(
     importPath: string,
     baseDir: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<string | null> {
     // Handle relative imports
     if (importPath.startsWith(".")) {
@@ -29,7 +29,7 @@ export class NodeResolver extends BaseResolver {
       importPath,
       path.join(baseDir, "dummy.ts"), // TypeScript needs a file context
       compilerOptions,
-      ts.sys
+      ts.sys,
     );
 
     if (result.resolvedModule?.resolvedFileName) {
@@ -44,7 +44,7 @@ export class NodeResolver extends BaseResolver {
   }
 
   private async getCompilerOptions(
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<ts.CompilerOptions> {
     if (this.compilerOptionsCache.has(workspaceRoot)) {
       return this.compilerOptionsCache.get(workspaceRoot)!;
@@ -66,7 +66,7 @@ export class NodeResolver extends BaseResolver {
         const parsedConfig = ts.parseJsonConfigFileContent(
           configFile.config,
           ts.sys,
-          path.dirname(configPath)
+          path.dirname(configPath),
         );
         compilerOptions = parsedConfig.options;
       }

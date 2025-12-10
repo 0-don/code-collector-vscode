@@ -6,7 +6,7 @@ export abstract class BaseResolver {
   abstract resolve(
     importPath: string,
     baseDir: string,
-    workspaceRoot: string
+    workspaceRoot: string,
   ): Promise<string | null> | string | null;
 
   canHandle(filePath: string): boolean {

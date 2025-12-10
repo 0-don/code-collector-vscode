@@ -20,7 +20,7 @@ export class JavaParser extends BaseParser {
 
       // Standard and static imports with optional wildcards
       const importMatch = trimmed.match(
-        /^import\s+(?:static\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*(?:\.[a-zA-Z_$][a-zA-Z0-9_$]*)*(?:\.\*)?)\s*;/
+        /^import\s+(?:static\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*(?:\.[a-zA-Z_$][a-zA-Z0-9_$]*)*(?:\.\*)?)\s*;/,
       );
 
       if (importMatch) {
