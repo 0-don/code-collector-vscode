@@ -6,6 +6,9 @@ interface FileTypeStats {
   [ext: string]: { count: number; lines: number };
 }
 
+let activeStatsDisposable: vscode.Disposable | null = null;
+let activeStatusBarItem: vscode.StatusBarItem | null = null;
+
 export function getFileTypeStats(contexts: FileContext[]): FileTypeStats {
   const stats: FileTypeStats = {};
 
@@ -86,6 +89,16 @@ export function showStatsNotification(
   stats: FileTypeStats,
   modeLabel?: string,
 ): void {
+  if (activeStatsDisposable) {
+    activeStatsDisposable.dispose();
+    activeStatsDisposable = null;
+  }
+
+  if (activeStatusBarItem) {
+    activeStatusBarItem.dispose();
+    activeStatusBarItem = null;
+  }
+
   const statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     100,
@@ -101,11 +114,20 @@ export function showStatsNotification(
     },
   );
 
+  activeStatsDisposable = disposable;
+  activeStatusBarItem = statusBarItem;
+
   statusBarItem.show();
 
   setTimeout(() => {
     statusBarItem.dispose();
     disposable.dispose();
+    if (activeStatsDisposable === disposable) {
+      activeStatsDisposable = null;
+    }
+    if (activeStatusBarItem === statusBarItem) {
+      activeStatusBarItem = null;
+    }
   }, 10000);
 
   vscode.window.showInformationMessage(
