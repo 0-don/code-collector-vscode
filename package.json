@@ -135,7 +135,8 @@
             ".idea/**",
             ".DS_Store",
             ".expo",
-            "android"
+            "android",
+            ".claude"
           ],
           "description": "Glob patterns for files to ignore when collecting all code"
         }
