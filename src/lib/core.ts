@@ -1,10 +1,8 @@
-// src/lib/core.ts
 import * as fs from "fs";
 import * as micromatch from "micromatch";
 import * as path from "path";
 import { parserRegistry } from "../parsers";
 import { resolverRegistry } from "../resolvers";
-import { PythonResolver } from "../resolvers/python-resolver";
 import { FileContext } from "../types";
 import { findProjectRoot, isTextFile } from "../utils";
 import { getIgnorePatterns } from "./config";
@@ -22,7 +20,6 @@ export class ContextCollector {
 
     this.output.log(`Using ${ignorePatterns.length} ignore patterns`);
 
-    // Recursively discover files while respecting ignore patterns
     const filteredFiles = await this.discoverFiles(
       workspaceRoot,
       workspaceRoot,
@@ -30,7 +27,6 @@ export class ContextCollector {
     );
     this.output.log(`Discovered ${filteredFiles.length} files after filtering`);
 
-    // Process files and create contexts
     const contexts: FileContext[] = [];
     for (let i = 0; i < filteredFiles.length; i++) {
       if (progressCallback && !progressCallback(i + 1, filteredFiles.length)) {
@@ -68,7 +64,6 @@ export class ContextCollector {
         const relativePath = path.relative(workspaceRoot, fullPath);
 
         if (entry.isDirectory()) {
-          // For directories, check ignore patterns against both full path and directory name
           const directoryName = entry.name;
           const isIgnored =
             micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
@@ -78,7 +73,6 @@ export class ContextCollector {
             micromatch.isMatch(directoryName, ignorePatterns, { dot: true });
 
           if (!isIgnored) {
-            // Only recurse into directories that aren't ignored
             const subFiles = await this.discoverFiles(
               fullPath,
               workspaceRoot,
@@ -87,7 +81,6 @@ export class ContextCollector {
             files.push(...subFiles);
           }
         } else if (entry.isFile()) {
-          // For files, check ignore patterns against both full relative path and just filename
           const filename = path.basename(fullPath);
           const isIgnored =
             micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
@@ -120,17 +113,10 @@ export class ContextCollector {
     contexts: FileContext[],
     processed: Set<string>,
     workspaceRoot: string,
-    pythonFiles: Set<string>,
   ): Promise<void> {
     const normalizedPath = path.resolve(filePath);
 
     if (processed.has(normalizedPath) || !fs.existsSync(normalizedPath)) {
-      return;
-    }
-
-    // Collect Python files for batch processing
-    if (filePath.endsWith(".py")) {
-      pythonFiles.add(normalizedPath);
       return;
     }
 
@@ -150,7 +136,6 @@ export class ContextCollector {
           this.output.log(`${relativePath}: ${imports.length} imports`);
         }
 
-        // Use project-specific root for import resolution instead of workspace root
         const projectRoot = this.getProjectRootForFile(normalizedPath);
 
         for (const importInfo of imports) {
@@ -166,83 +151,12 @@ export class ContextCollector {
               contexts,
               processed,
               workspaceRoot,
-              pythonFiles,
             );
           }
         }
       }
     } catch (error) {
       this.output.error(`Failed to process: ${normalizedPath}`, error);
-    }
-  }
-
-  async processPythonFiles(
-    pythonFiles: Set<string>,
-    contexts: FileContext[],
-    processed: Set<string>,
-    workspaceRoot: string,
-  ): Promise<void> {
-    if (pythonFiles.size === 0) {
-      return;
-    }
-
-    this.output.log(
-      `Processing ${pythonFiles.size} Python files with helper...`,
-    );
-
-    const resolver = resolverRegistry.getResolver("dummy.py") as PythonResolver;
-    const ignorePatterns = getIgnorePatterns();
-
-    try {
-      const allPythonFiles = await resolver.resolveAllImports(
-        Array.from(pythonFiles),
-        ignorePatterns,
-      );
-      this.output.log(
-        `Python helper found ${allPythonFiles.length} total Python files`,
-      );
-
-      for (const pythonFile of allPythonFiles) {
-        const normalizedPath = path.resolve(pythonFile);
-
-        if (!processed.has(normalizedPath) && fs.existsSync(normalizedPath)) {
-          processed.add(normalizedPath);
-
-          try {
-            const content = fs.readFileSync(normalizedPath, "utf8");
-            const relativePath = path.relative(workspaceRoot, normalizedPath);
-            contexts.push({ path: normalizedPath, content, relativePath });
-          } catch (error) {
-            this.output.error(
-              `Failed to read Python file: ${normalizedPath}`,
-              error,
-            );
-          }
-        }
-      }
-    } catch (error) {
-      this.output.error(
-        `Python helper failed, processing files individually`,
-        error,
-      );
-
-      // Fallback: add Python files without import resolution
-      for (const pythonFile of pythonFiles) {
-        if (!processed.has(pythonFile)) {
-          processed.add(pythonFile);
-
-          try {
-            const content = fs.readFileSync(pythonFile, "utf8");
-            const relativePath = path.relative(workspaceRoot, pythonFile);
-            contexts.push({ path: pythonFile, content, relativePath });
-          } catch (error) {
-            this.output.error(
-              `Failed to read Python file: ${pythonFile}`,
-              error,
-            );
-          }
-        }
-      }
     }
   }
 }

@@ -252,14 +252,13 @@ export class CommandHandler {
 
     const allContexts: FileContext[] = [];
     const processed = new Set<string>();
-    const pythonFiles = new Set<string>();
     const workspaceRoot = getWorkspaceRoot();
 
     this.output.log(
       `Processing ${filesToProcess.length} initial files for imports...`,
     );
 
-    for (const filePath of filesToProcess.filter((f) => !f.endsWith(".py"))) {
+    for (const filePath of filesToProcess) {
       if (token?.isCancellationRequested) {
         return;
       }
@@ -268,23 +267,9 @@ export class CommandHandler {
         allContexts,
         processed,
         workspaceRoot,
-        pythonFiles,
       );
     }
 
-    filesToProcess
-      .filter((f) => f.endsWith(".py"))
-      .forEach((f) => pythonFiles.add(f));
-    if (token?.isCancellationRequested) {
-      return;
-    }
-
-    await this.contextCollector.processPythonFiles(
-      pythonFiles,
-      allContexts,
-      processed,
-      workspaceRoot,
-    );
     if (token?.isCancellationRequested) {
       return;
     }
