@@ -6,6 +6,38 @@ import { getIgnorePatterns, getIgnorePatternsGlob } from "../lib/config";
 import { supportedExtensions } from "../lib/languages";
 import { FileContext } from "../types";
 
+const PROJECT_MARKERS = [
+  "package.json",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "pyproject.toml",
+  "requirements.txt",
+  "setup.py",
+  "tsconfig.json",
+  "jsconfig.json",
+];
+
+export function findProjectRoot(filePath: string): string {
+  let currentDir = path.dirname(filePath);
+  const rootDir = path.parse(currentDir).root;
+
+  while (currentDir !== rootDir) {
+    for (const marker of PROJECT_MARKERS) {
+      if (fs.existsSync(path.join(currentDir, marker))) {
+        return currentDir;
+      }
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  return path.dirname(filePath);
+}
+
 export function isTextFile(filePath: string): boolean {
   try {
     const buffer = fs.readFileSync(filePath, { flag: "r" }).slice(0, 1024);

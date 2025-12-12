@@ -1,3 +1,4 @@
+// src/lib/core.ts
 import * as fs from "fs";
 import * as micromatch from "micromatch";
 import * as path from "path";
@@ -5,12 +6,13 @@ import { parserRegistry } from "../parsers";
 import { resolverRegistry } from "../resolvers";
 import { PythonResolver } from "../resolvers/python-resolver";
 import { FileContext } from "../types";
-import { isTextFile } from "../utils";
+import { findProjectRoot, isTextFile } from "../utils";
 import { getIgnorePatterns } from "./config";
 import { OutputManager } from "./output";
 
 export class ContextCollector {
   private output = OutputManager.getInstance();
+  private projectRootCache = new Map<string, string>();
 
   async collectAllFiles(
     workspaceRoot: string,
@@ -69,15 +71,11 @@ export class ContextCollector {
           // For directories, check ignore patterns against both full path and directory name
           const directoryName = entry.name;
           const isIgnored =
-            micromatch.isMatch(relativePath, ignorePatterns, {
-              dot: true,
-            }) ||
+            micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
             micromatch.isMatch(relativePath + "/", ignorePatterns, {
               dot: true,
             }) ||
-            micromatch.isMatch(directoryName, ignorePatterns, {
-              dot: true,
-            });
+            micromatch.isMatch(directoryName, ignorePatterns, { dot: true });
 
           if (!isIgnored) {
             // Only recurse into directories that aren't ignored
@@ -92,12 +90,8 @@ export class ContextCollector {
           // For files, check ignore patterns against both full relative path and just filename
           const filename = path.basename(fullPath);
           const isIgnored =
-            micromatch.isMatch(relativePath, ignorePatterns, {
-              dot: true,
-            }) ||
-            micromatch.isMatch(filename, ignorePatterns, {
-              dot: true,
-            });
+            micromatch.isMatch(relativePath, ignorePatterns, { dot: true }) ||
+            micromatch.isMatch(filename, ignorePatterns, { dot: true });
 
           if (!isIgnored && isTextFile(fullPath)) {
             files.push(fullPath);
@@ -109,6 +103,16 @@ export class ContextCollector {
     }
 
     return files;
+  }
+
+  private getProjectRootForFile(filePath: string): string {
+    if (this.projectRootCache.has(filePath)) {
+      return this.projectRootCache.get(filePath)!;
+    }
+
+    const projectRoot = findProjectRoot(filePath);
+    this.projectRootCache.set(filePath, projectRoot);
+    return projectRoot;
   }
 
   async processFile(
@@ -146,11 +150,14 @@ export class ContextCollector {
           this.output.log(`${relativePath}: ${imports.length} imports`);
         }
 
+        // Use project-specific root for import resolution instead of workspace root
+        const projectRoot = this.getProjectRootForFile(normalizedPath);
+
         for (const importInfo of imports) {
           const resolvedPath = await resolver.resolve(
             importInfo.module,
             path.dirname(normalizedPath),
-            workspaceRoot,
+            projectRoot,
           );
 
           if (resolvedPath && parserRegistry.getParser(resolvedPath)) {
