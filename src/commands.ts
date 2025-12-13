@@ -30,7 +30,7 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          return this.handleImportBasedCollection(
+          await this.handleImportBasedCollection(
             uri,
             selectedFiles,
             token,
@@ -59,7 +59,7 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          return this.handleDirectCollection(uri, selectedFiles, token);
+          await this.handleDirectCollection(uri, selectedFiles, token);
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);
@@ -83,7 +83,7 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          return this.handleImportBasedCollection(
+          await this.handleImportBasedCollection(
             uri,
             selectedFiles,
             token,
@@ -174,13 +174,22 @@ export class CommandHandler {
       return;
     }
 
-    const output = formatContexts(allContexts);
     const totalLines = allContexts.reduce(
       (sum, ctx) => sum + ctx.content.split("\n").length,
       0,
     );
     const stats = getFileTypeStats(allContexts);
-    await vscode.env.clipboard.writeText(output);
+
+    try {
+      const output = formatContexts(allContexts);
+      await vscode.env.clipboard.writeText(output);
+    } catch (error) {
+      const message = "Content too large to copy to clipboard";
+      this.output.error(message, error);
+      vscode.window.showWarningMessage(
+        `${message}. Collected ${allContexts.length} files but cannot copy to clipboard.`,
+      );
+    }
 
     showStatsNotification(
       allContexts.length,
@@ -264,13 +273,22 @@ export class CommandHandler {
       );
     }
 
-    const output = formatContexts(finalContexts);
     const totalLines = finalContexts.reduce(
       (sum, ctx) => sum + ctx.content.split("\n").length,
       0,
     );
     const stats = getFileTypeStats(finalContexts);
-    await vscode.env.clipboard.writeText(output);
+
+    try {
+      const output = formatContexts(finalContexts);
+      await vscode.env.clipboard.writeText(output);
+    } catch (error) {
+      const message = "Content too large to copy to clipboard";
+      this.output.error(message, error);
+      vscode.window.showWarningMessage(
+        `${message}. Collected ${finalContexts.length} files but cannot copy to clipboard.`,
+      );
+    }
 
     const modeLabel = applyIgnorePatterns
       ? "smart filter"
@@ -360,8 +378,17 @@ export class CommandHandler {
             0,
           );
           const stats = getFileTypeStats(uniqueContexts);
-          const output = formatContexts(uniqueContexts);
-          await vscode.env.clipboard.writeText(output);
+
+          try {
+            const output = formatContexts(uniqueContexts);
+            await vscode.env.clipboard.writeText(output);
+          } catch (error) {
+            const message = "Content too large to copy to clipboard";
+            this.output.error(message, error);
+            vscode.window.showWarningMessage(
+              `${message}. Collected ${uniqueContexts.length} files but cannot copy to clipboard.`,
+            );
+          }
 
           showStatsNotification(
             uniqueContexts.length,
