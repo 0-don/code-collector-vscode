@@ -4,7 +4,6 @@ import * as vscode from "vscode";
 import { ContextCollector } from "./lib/core";
 import { OutputManager } from "./lib/output";
 import { getFileTypeStats, showStatsNotification } from "./lib/stats";
-import { parserRegistry } from "./parsers";
 import { FileContext } from "./types";
 import {
   formatContexts,
@@ -31,7 +30,6 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          this.output.log("Starting import-based collection...");
           return this.handleImportBasedCollection(
             uri,
             selectedFiles,
@@ -61,7 +59,6 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          this.output.log("Starting direct collection...");
           return this.handleDirectCollection(uri, selectedFiles, token);
         } catch (error) {
           const errorMessage = `Error: ${error}`;
@@ -86,7 +83,6 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          this.output.log("Starting smart filter collection...");
           return this.handleImportBasedCollection(
             uri,
             selectedFiles,
@@ -142,7 +138,6 @@ export class CommandHandler {
             const content = fs.readFileSync(fsPath, "utf8");
             const relativePath = path.relative(workspaceRoot, fsPath);
             allContexts.push({ path: fsPath, content, relativePath });
-            this.output.log(`Added file: ${relativePath}`);
           } catch (error) {
             this.output.error(`Failed to read: ${fsPath}`, error);
           }
@@ -165,12 +160,6 @@ export class CommandHandler {
             this.output.error(`Failed to read: ${filePath}`, error);
           }
         }
-        this.output.log(
-          `Added ${directoryFiles.length} files from: ${path.relative(
-            workspaceRoot,
-            fsPath,
-          )}`,
-        );
       }
     }
 
@@ -193,8 +182,6 @@ export class CommandHandler {
     const stats = getFileTypeStats(allContexts);
     await vscode.env.clipboard.writeText(output);
 
-    const successMessage = `Copied ${allContexts.length} files (${totalLines} lines) - direct collection`;
-    this.output.log(`✓ ${successMessage}`);
     showStatsNotification(
       allContexts.length,
       totalLines,
@@ -254,10 +241,6 @@ export class CommandHandler {
     const processed = new Set<string>();
     const workspaceRoot = getWorkspaceRoot();
 
-    this.output.log(
-      `Processing ${filesToProcess.length} initial files for imports...`,
-    );
-
     for (const filePath of filesToProcess) {
       if (token?.isCancellationRequested) {
         return;
@@ -279,12 +262,6 @@ export class CommandHandler {
       finalContexts = allContexts.filter(
         (ctx) => !shouldIgnoreFile(ctx.relativePath, workspaceRoot),
       );
-      const filtered = allContexts.length - finalContexts.length;
-      if (filtered > 0) {
-        this.output.log(
-          `Filtered out ${filtered} files based on ignore patterns`,
-        );
-      }
     }
 
     const output = formatContexts(finalContexts);
@@ -295,15 +272,10 @@ export class CommandHandler {
     const stats = getFileTypeStats(finalContexts);
     await vscode.env.clipboard.writeText(output);
 
-    const programmingFiles = finalContexts.filter(
-      (ctx) => parserRegistry.getParser(ctx.path) !== null,
-    ).length;
     const modeLabel = applyIgnorePatterns
       ? "smart filter"
-      : `${programmingFiles} with imports, ${finalContexts.length - programmingFiles} text`;
+      : "with imports";
 
-    const successMessage = `Copied ${finalContexts.length} files (${totalLines} lines) - ${modeLabel}`;
-    this.output.log(`✓ ${successMessage}`);
     showStatsNotification(finalContexts.length, totalLines, stats, modeLabel);
   }
 
@@ -320,7 +292,6 @@ export class CommandHandler {
       async (progress, token) => {
         try {
           this.output.clear();
-          this.output.log("Starting full collection...");
 
           const workspaceRoot = getWorkspaceRoot();
           if (!workspaceRoot) {
@@ -361,7 +332,6 @@ export class CommandHandler {
           }
 
           const uniqueFolders = [...new Set(targetFolders)];
-          this.output.log(`Collecting from ${uniqueFolders.length} folder(s)`);
 
           const allContexts: FileContext[] = [];
 
@@ -393,9 +363,12 @@ export class CommandHandler {
           const output = formatContexts(uniqueContexts);
           await vscode.env.clipboard.writeText(output);
 
-          const successMessage = `Copied ${uniqueContexts.length} files (${totalLines} lines)`;
-          this.output.log(`✓ ${successMessage}`);
-          showStatsNotification(uniqueContexts.length, totalLines, stats);
+          showStatsNotification(
+            uniqueContexts.length,
+            totalLines,
+            stats,
+            "full collection",
+          );
         } catch (error) {
           const errorMessage = `Error: ${error}`;
           this.output.error(errorMessage, error);

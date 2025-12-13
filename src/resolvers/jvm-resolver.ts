@@ -133,7 +133,6 @@ export class JvmResolver extends BaseResolver {
         }
       }
     } catch (error) {
-      console.log("Error parsing Maven project:", error);
       // Fallback to convention
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));
@@ -225,7 +224,6 @@ export class JvmResolver extends BaseResolver {
       info.sourceDirs.push(path.join(workspaceRoot, "src/test/java"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/test/kotlin"));
     } catch (error) {
-      console.log("Error parsing Gradle project:", error);
       // Fallback to convention
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/java"));
       info.sourceDirs.push(path.join(workspaceRoot, "src/main/kotlin"));

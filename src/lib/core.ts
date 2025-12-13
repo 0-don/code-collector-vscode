@@ -18,19 +18,15 @@ export class ContextCollector {
   ): Promise<FileContext[]> {
     const ignorePatterns = getIgnorePatterns();
 
-    this.output.log(`Using ${ignorePatterns.length} ignore patterns`);
-
     const filteredFiles = await this.discoverFiles(
       workspaceRoot,
       workspaceRoot,
       ignorePatterns,
     );
-    this.output.log(`Discovered ${filteredFiles.length} files after filtering`);
 
     const contexts: FileContext[] = [];
     for (let i = 0; i < filteredFiles.length; i++) {
       if (progressCallback && !progressCallback(i + 1, filteredFiles.length)) {
-        this.output.log("Collection cancelled");
         break;
       }
 
@@ -45,7 +41,6 @@ export class ContextCollector {
       }
     }
 
-    this.output.log(`Collected ${contexts.length} files`);
     return contexts;
   }
 
@@ -132,9 +127,6 @@ export class ContextCollector {
 
       if (parser && resolver) {
         const imports = await parser.parseImports(content, filePath);
-        if (imports.length > 0) {
-          this.output.log(`${relativePath}: ${imports.length} imports`);
-        }
 
         const projectRoot = this.getProjectRootForFile(normalizedPath);
 

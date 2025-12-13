@@ -23,7 +23,7 @@ export class SettingsInitializer {
           vscode.ConfigurationTarget.Global,
         );
     } catch (error) {
-      console.log("Could not initialize default settings:", error);
+      // Silently fail - default settings are optional
     }
   }
 }

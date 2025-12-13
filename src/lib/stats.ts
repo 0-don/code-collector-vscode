@@ -46,7 +46,7 @@ async function getLanguageName(ext: string): Promise<string> {
       }
     }
   } catch (error) {
-    console.error("Failed to load linguist-languages:", error);
+    // Silently fallback to extension if linguist-languages fails
   }
 
   return ext;
