@@ -31,7 +31,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const collectAllDisposable = vscode.commands.registerCommand(
     "code-collector.collectAll",
-    () => commandHandler.handleCollectAll(),
+    (uri: vscode.Uri, selectedFiles?: vscode.Uri[]) =>
+      commandHandler.handleCollectAll(uri, selectedFiles),
   );
 
   const showOutputDisposable = vscode.commands.registerCommand(
